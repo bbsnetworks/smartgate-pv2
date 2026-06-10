@@ -29,7 +29,7 @@ endif;
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Reportes - Gym Admin</title>
+  <title>Reportes - Smartgate POS</title>
   <link rel="icon" type="image/x-icon" href="../img/favicon.ico">
   <link rel="stylesheet" href="../src/output.css">
   <script src="../js/lucide.min.js"></script>
@@ -43,7 +43,7 @@ endif;
 <!-- LOGO flotante -->
 <div class="absolute -top-16 left-1/2 transform -translate-x-1/2">
   <img src="../php/logo_branding.php"
-       alt="Logo Gym"
+       alt="Logo Smartgate-POS"
        class="w-24 h-24 rounded-full border-4 border-slate-800 shadow-lg bg-white object-cover">
 </div>
 
@@ -118,7 +118,7 @@ endif;
     </div>
 
     <!-- Contenedor de reportes -->
-    <div id="reporteContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6 text-white">
+    <div id="reporteContainer" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 text-white">
       <!-- Cards dinámicos se insertarán aquí -->
     </div>
   </div>
@@ -126,6 +126,11 @@ endif;
 
 <script src="../js/swalConfig.js"></script>
 <script src="../js/jspdf.umd.min.js"></script>
+<script>
+  window.tipoUsuario = "<?php echo $_SESSION['usuario']['rol'] ?? ''; ?>";
+  window.usuarioActualId = "<?php echo $_SESSION['usuario']['id'] ?? ''; ?>";
+  window.usuarioActualNombre = "<?php echo htmlspecialchars($_SESSION['usuario']['nombre'] ?? '', ENT_QUOTES, 'UTF-8'); ?>";
+</script>
 <script src="../js/reportes.js"></script>
 
 </body>

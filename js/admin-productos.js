@@ -1,4 +1,3 @@
-
 document.addEventListener("DOMContentLoaded", () => {
   cargarProductos();
 });
@@ -11,19 +10,22 @@ let totalRegistros = 0;
 let modoBusqueda = false;
 
 function cargarProductos(pagina = 1) {
-  const busqueda = document.getElementById("busquedaProducto").value.trim().toLowerCase();
+  const busqueda = document
+    .getElementById("busquedaProducto")
+    .value.trim()
+    .toLowerCase();
   paginaActual = pagina;
   offset = (pagina - 1) * limit;
 
   const params = new URLSearchParams({
     limit,
     offset,
-    ...(busqueda && { busqueda })
+    ...(busqueda && { busqueda }),
   });
 
   fetch(`../php/productos_controller.php?${params}`)
-    .then(res => res.json())
-    .then(data => {
+    .then((res) => res.json())
+    .then((data) => {
       if (data.success) {
         todosLosProductos = data.productos;
         totalRegistros = data.total || 0;
@@ -31,7 +33,7 @@ function cargarProductos(pagina = 1) {
         renderPaginacion(); // ⬅️ esta parte es nueva
       } else {
         document.getElementById("tabla-productos").innerHTML =
-          '<tr><td colspan="9" class="text-center py-4">No se pudieron cargar productos</td></tr>';
+          '<tr><td colspan="10" class="text-center py-4">No se pudieron cargar productos</td></tr>';;
       }
     });
 }
@@ -44,160 +46,379 @@ function renderPaginacion() {
   for (let i = 1; i <= totalPaginas; i++) {
     const btn = document.createElement("button");
     btn.textContent = i;
-    btn.className = `px-3 py-1 rounded ${i === paginaActual ? 'bg-blue-600 text-white' : 'bg-gray-700 text-slate-300 hover:bg-blue-700'}`;
+    btn.className = `px-3 py-1 rounded ${i === paginaActual ? "bg-blue-600 text-white" : "bg-gray-700 text-slate-300 hover:bg-blue-700"}`;
     btn.onclick = () => cargarProductos(i);
     contenedor.appendChild(btn);
   }
 }
 
-document.getElementById("busquedaProducto").addEventListener("input", () => cargarProductos(1));
+document
+  .getElementById("busquedaProducto")
+  .addEventListener("input", () => cargarProductos(1));
 
 function mostrarProductosFiltrados(productos) {
   const tabla = document.getElementById("tabla-productos");
   tabla.innerHTML = "";
 
   if (!productos.length) {
-    tabla.innerHTML = '<tr><td colspan="9" class="text-center py-6 opacity-70">Sin resultados</td></tr>';
+    tabla.innerHTML =
+      '<tr><td colspan="10" class="text-center py-6 opacity-70">Sin resultados</td></tr>';
     return;
   }
 
-  const fmt = n => `$${Number(n ?? 0).toFixed(2)}`;
-  const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[m]));
+  const fmt = (n) => `$${Number(n ?? 0).toFixed(2)}`;
 
-  productos.forEach(p => {
-    const descFull  = p.descripcion || '';
-    const descCorta = descFull.length > 64 ? `${descFull.slice(0,64)}…` : descFull;
-    const prov = p.proveedor_nombre || '—';
-    const cat  = p.categoria || '—';
+  const esc = (s) =>
+    String(s ?? "").replace(
+      /[&<>"']/g,
+      (m) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[m],
+    );
+
+  productos.forEach((p) => {
+    const prov = p.proveedor_nombre || "—";
+    const cat = p.categoria || "—";
+    const propietario = p.propietario || "—";
+
+    const precio = Number(p.precio || 0);
+    const costo = Number(p.precio_proveedor || 0);
+    const ganancia = Number(p.ganancia_unitaria ?? (precio - costo));
+
+    const gananciaClass =
+      ganancia < 0
+        ? "text-red-400"
+        : ganancia === 0
+          ? "text-slate-300"
+          : "text-emerald-400";
 
     const tr = document.createElement("tr");
     tr.className = "hover:bg-slate-700/40";
+
     tr.innerHTML = `
       <td class="px-4 py-3 whitespace-nowrap">${esc(p.codigo)}</td>
-      <td class="px-4 py-3 whitespace-nowrap">${esc(p.nombre)}</td>
-      <td class="px-4 py-3 text-right tabular-nums whitespace-nowrap">${fmt(p.precio)}</td>
-      <td class="px-4 py-3 text-right tabular-nums whitespace-nowrap">${fmt(p.precio_proveedor)}</td>
+
+      <td class="px-4 py-3">
+        <div class="font-semibold whitespace-nowrap">${esc(p.nombre)}</div>
+        ${
+          p.descripcion
+            ? `<div class="text-xs text-slate-400 max-w-[260px] truncate">${esc(p.descripcion)}</div>`
+            : ""
+        }
+      </td>
+
+      <td class="px-4 py-3 whitespace-nowrap">
+        <div class="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-900/70 border border-slate-700">
+          <i data-lucide="user" class="w-4 h-4 text-blue-300"></i>
+          <span>${esc(propietario)}</span>
+        </div>
+      </td>
+
+      <td class="px-4 py-3 text-right tabular-nums whitespace-nowrap">${fmt(precio)}</td>
+
+      <td class="px-4 py-3 text-right tabular-nums whitespace-nowrap">${fmt(costo)}</td>
+
+      <td class="px-4 py-3 text-right tabular-nums whitespace-nowrap font-semibold ${gananciaClass}">
+        ${fmt(ganancia)}
+      </td>
+
       <td class="px-4 py-3 whitespace-nowrap">${esc(prov)}</td>
-      <td class="px-4 py-3 text-right tabular-nums">${p.stock}</td>
+
+      <td class="px-4 py-3 text-right tabular-nums">
+        <span class="inline-flex justify-center min-w-10 px-2 py-1 rounded-lg bg-slate-900/70 border border-slate-700">
+          ${esc(p.stock)}
+        </span>
+      </td>
+
       <td class="px-4 py-3 whitespace-nowrap">${esc(cat)}</td>
+
       <td class="px-4 py-3">
         <div class="flex justify-center gap-2">
           <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-yellow-500/15 text-yellow-300 border border-yellow-600 hover:bg-yellow-500 hover:text-slate-900 transition"
-                  onclick="editarProducto(${p.id})">
+                  onclick="editarProducto(${p.inventario_usuario_id})">
             <i data-lucide="pencil" class="w-4 h-4"></i> Editar
           </button>
+
           <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-red-400 border border-red-600 hover:bg-red-600 hover:text-white transition"
-                  onclick="eliminarProducto(${p.id})">
+                  onclick="eliminarProducto(${p.inventario_usuario_id})">
             <i data-lucide="trash-2" class="w-4 h-4"></i> Eliminar
           </button>
         </div>
       </td>
     `;
+
     tabla.appendChild(tr);
   });
 
   if (window.lucide?.createIcons) lucide.createIcons();
 }
 
-
-
 function abrirModalAgregar() {
   // Trae categorías y proveedores activos en paralelo
   Promise.all([
-    fetch("../php/categorias_controller.php").then(r => r.json()),
-    fetch("../php/proveedores_controller.php?action=listar&activo=1&limit=200").then(r => r.json())
+    fetch("../php/categorias_controller.php").then((r) => r.json()),
+    fetch(
+      "../php/proveedores_controller.php?action=listar&activo=1&limit=200",
+    ).then((r) => r.json()),
   ]).then(([catData, provData]) => {
     const categorias = catData.categorias || [];
-    const proveedores = (provData.proveedores || []);
+    const proveedores = provData.proveedores || [];
 
     const catOpts = [
       `<option value="" disabled selected>Selecciona categoría</option>`,
-      ...categorias.map(c => `<option value="${c.id}">${c.nombre}</option>`)
+      ...categorias.map((c) => `<option value="${c.id}">${c.nombre}</option>`),
     ].join("");
 
     const provOpts = [
       `<option value="" selected>— Sin proveedor —</option>`,
-      ...proveedores.map(p => `<option value="${p.id}">${p.nombre}</option>`)
+      ...proveedores.map((p) => `<option value="${p.id}">${p.nombre}</option>`),
     ].join("");
 
-    swalcard.fire({
-      title: "Agregar Producto",
-      width: 680,
-      html: `
-        <div class="grid text-left text-sm text-white">
-          <label class="font-semibold mx-auto">Código de Barras:</label>
-          <input id="codigo" inputmode="numeric" pattern="\\d*" class="swal2-input mx-auto w-3/4" placeholder="Código de Barras">
+    swalcard
+      .fire({
+        title: "Agregar Producto",
+        width: 820,
+        html: `
+  <div class="text-left text-sm text-slate-200 space-y-4">
 
-          <label class="font-semibold mx-auto mt-2">Nombre del Producto:</label>
-          <input id="nombre" class="swal2-input mx-auto w-3/4" placeholder="Nombre del Producto">
+    <div class="rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3">
+      <p class="text-sm text-blue-100">
+        Este producto quedará registrado en el inventario de:
+        <span class="font-bold text-white">
+          ${window.usuarioActualNombre || "Usuario actual"}
+        </span>
+      </p>
+      <p class="text-xs text-blue-200/80 mt-1">
+        Si otro usuario agrega el mismo producto, tendrá su propio stock, costo y precio de venta.
+      </p>
+    </div>
 
-          <label class="font-semibold mx-auto mt-2">Descripción:</label>
-          <textarea id="descripcion" rows="3" class="swal2-textarea mx-auto w-3/4" placeholder="Descripción"></textarea>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block mb-1 font-semibold text-slate-300">Código de barras</label>
+        <input 
+          id="codigo" 
+          inputmode="numeric" 
+          pattern="\\d*" 
+          class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500" 
+          placeholder="Ej. 7501234567890"
+        >
+      </div>
 
-          <div class="mx-auto w-3/4 grid grid-cols-2 gap-3 mt-2">
-            <div>
-              <label class="font-semibold">Precio (venta):</label>
-              <input id="precio" type="number" step="0.01" min="0" class="swal2-input w-full" placeholder="0.00">
-            </div>
-          </div>
+      <div>
+        <label class="block mb-1 font-semibold text-slate-300">Nombre del producto</label>
+        <input 
+          id="nombre" 
+          class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500" 
+          placeholder="Ej. Coca Cola 600ml"
+        >
+      </div>
+    </div>
 
-          <label class="font-semibold mx-auto mt-2 mb-2">Proveedor:</label>
-          <select id="proveedor_id" class="mx-auto mt-1 w-3/4 p-2 rounded border border-slate-600 bg-slate-800 text-slate-100">
-            ${provOpts}
-          </select>
+    <div>
+      <label class="block mb-1 font-semibold text-slate-300">Descripción</label>
+      <textarea 
+        id="descripcion" 
+        rows="3" 
+        class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500 resize-none" 
+        placeholder="Descripción del producto"
+      ></textarea>
+    </div>
 
-          <label class="font-semibold mx-auto mt-2 mb-2">Categoría:</label>
-          <select id="categoria_id" class="mx-auto mt-1 w-3/4 p-2 rounded border border-slate-600 bg-slate-800 text-slate-100">
-            ${catOpts}
-          </select>
-
-          <label class="font-semibold mx-auto mt-2">Stock inicial:</label>
-          <input id="stock" type="number" min="0" step="1" class="swal2-input mx-auto w-3/4" placeholder="0">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="block mb-1 font-semibold text-slate-300">Precio venta</label>
+        <div class="relative">
+          <span class="absolute left-3 top-2.5 text-slate-400">$</span>
+          <input 
+            id="precio" 
+            type="number" 
+            step="0.01" 
+            min="0" 
+            class="w-full rounded-lg bg-slate-900 border border-slate-600 pl-7 pr-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500" 
+            placeholder="0.00"
+          >
         </div>
-      `,
-      focusConfirm: false,
-      showCancelButton: true,
-      confirmButtonText: "Agregar",
-      cancelButtonText: "Cancelar",
-      didOpen: () => {
-        const $popup = Swal.getPopup();
-        $popup.classList.add('bg-slate-800','text-slate-100');
-      },
-      preConfirm: () => {
-        const val = id => document.getElementById(id).value.trim();
-        const codigo = val("codigo");
-        const nombre = val("nombre");
-        const descripcion = val("descripcion");
-        const precio = parseFloat(val("precio"));
-        const stock = parseInt(val("stock") || "0", 10);
-        const categoria_id = parseInt(val("categoria_id") || "0", 10);
-        const proveedor_id_str = val("proveedor_id");
-        const proveedor_id = proveedor_id_str ? parseInt(proveedor_id_str, 10) : null;
+      </div>
 
-        if (!codigo || !/^\d+$/.test(codigo)) return Swal.showValidationMessage("El código debe ser numérico.");
-        if (!nombre) return Swal.showValidationMessage("El nombre es obligatorio.");
-        if (!descripcion) return Swal.showValidationMessage("La descripción es obligatoria.");
-        if (isNaN(precio) || precio < 0) return Swal.showValidationMessage("Precio de venta inválido.");
-        if (!Number.isInteger(stock) || stock < 0) return Swal.showValidationMessage("Stock inválido.");
-        if (isNaN(categoria_id) || categoria_id <= 0) return Swal.showValidationMessage("Selecciona una categoría.");
+      <div>
+        <label class="block mb-1 font-semibold text-slate-300">Costo proveedor</label>
+        <div class="relative">
+          <span class="absolute left-3 top-2.5 text-slate-400">$</span>
+          <input 
+            id="precio_proveedor" 
+            type="number" 
+            step="0.01" 
+            min="0" 
+            class="w-full rounded-lg bg-slate-900 border border-slate-600 pl-7 pr-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500" 
+            placeholder="0.00"
+          >
+        </div>
+      </div>
 
-        return { codigo, nombre, descripcion, precio, stock, categoria_id, proveedor_id };
-      }
-    }).then(res => {
-      if (!res.isConfirmed) return;
-      fetch("../php/productos_controller.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(res.value)
+      <div>
+        <label class="block mb-1 font-semibold text-slate-300">Stock inicial</label>
+        <input 
+          id="stock" 
+          type="number" 
+          min="0" 
+          step="1" 
+          class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500" 
+          placeholder="0"
+        >
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block mb-1 font-semibold text-slate-300">Proveedor</label>
+        <select 
+          id="proveedor_id" 
+          class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          ${provOpts}
+        </select>
+      </div>
+
+      <div>
+        <label class="block mb-1 font-semibold text-slate-300">Categoría</label>
+        <select 
+          id="categoria_id" 
+          class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          ${catOpts}
+        </select>
+      </div>
+    </div>
+
+    <div class="rounded-xl bg-slate-900/70 border border-slate-700 px-4 py-3">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-center">
+        <div>
+          <p class="text-xs text-slate-400">Ganancia unitaria</p>
+          <p id="previewGanancia" class="text-lg font-bold text-emerald-400">$0.00</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-400">Inversión inicial</p>
+          <p id="previewInversion" class="text-lg font-bold text-yellow-400">$0.00</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-400">Venta estimada</p>
+          <p id="previewVentaTotal" class="text-lg font-bold text-blue-400">$0.00</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+`,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: "Agregar",
+        cancelButtonText: "Cancelar",
+        didOpen: () => {
+          const $popup = Swal.getPopup();
+          $popup.classList.add("bg-slate-800", "text-slate-100");
+
+          const precioInput = document.getElementById("precio");
+          const costoInput = document.getElementById("precio_proveedor");
+          const stockInput = document.getElementById("stock");
+
+          const previewGanancia = document.getElementById("previewGanancia");
+          const previewInversion = document.getElementById("previewInversion");
+          const previewVentaTotal =
+            document.getElementById("previewVentaTotal");
+
+          const formato = (valor) => `$${Number(valor || 0).toFixed(2)}`;
+
+          const actualizarPreview = () => {
+            const precio = parseFloat(precioInput.value) || 0;
+            const costo = parseFloat(costoInput.value) || 0;
+            const stock = parseInt(stockInput.value || "0", 10) || 0;
+
+            const ganancia = precio - costo;
+            const inversion = costo * stock;
+            const ventaTotal = precio * stock;
+
+            previewGanancia.textContent = formato(ganancia);
+            previewInversion.textContent = formato(inversion);
+            previewVentaTotal.textContent = formato(ventaTotal);
+
+            previewGanancia.classList.toggle("text-red-400", ganancia < 0);
+            previewGanancia.classList.toggle("text-emerald-400", ganancia >= 0);
+          };
+
+          precioInput.addEventListener("input", actualizarPreview);
+          costoInput.addEventListener("input", actualizarPreview);
+          stockInput.addEventListener("input", actualizarPreview);
+
+          actualizarPreview();
+        },
+        preConfirm: () => {
+          const val = (id) => document.getElementById(id).value.trim();
+          const codigo = val("codigo");
+          const nombre = val("nombre");
+          const descripcion = val("descripcion");
+          const precio = parseFloat(val("precio"));
+          const precio_proveedor = parseFloat(val("precio_proveedor"));
+          const stock = parseInt(val("stock") || "0", 10);
+          const categoria_id = parseInt(val("categoria_id") || "0", 10);
+          const proveedor_id_str = val("proveedor_id");
+          const proveedor_id = proveedor_id_str
+            ? parseInt(proveedor_id_str, 10)
+            : null;
+
+          if (!codigo || !/^\d+$/.test(codigo))
+            return Swal.showValidationMessage("El código debe ser numérico.");
+          if (!nombre)
+            return Swal.showValidationMessage("El nombre es obligatorio.");
+          if (!descripcion)
+            return Swal.showValidationMessage("La descripción es obligatoria.");
+          if (isNaN(precio) || precio < 0)
+            return Swal.showValidationMessage("Precio de venta inválido.");
+          if (isNaN(precio_proveedor) || precio_proveedor < 0) {
+            return Swal.showValidationMessage("Costo proveedor inválido.");
+          }
+          if (!Number.isInteger(stock) || stock < 0)
+            return Swal.showValidationMessage("Stock inválido.");
+          if (isNaN(categoria_id) || categoria_id <= 0)
+            return Swal.showValidationMessage("Selecciona una categoría.");
+
+          return {
+            codigo,
+            nombre,
+            descripcion,
+            precio,
+            precio_proveedor,
+            stock,
+            categoria_id,
+            proveedor_id,
+          };
+        },
       })
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) swalSuccess.fire("Agregado", data.msg, "success").then(()=>cargarProductos(1));
-        else swalError.fire("Error", data.error || "No se pudo agregar el producto");
+      .then((res) => {
+        if (!res.isConfirmed) return;
+        fetch("../php/productos_controller.php", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(res.value),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.success)
+              swalSuccess
+                .fire("Agregado", data.msg, "success")
+                .then(() => cargarProductos(1));
+            else
+              swalError.fire(
+                "Error",
+                data.error || "No se pudo agregar el producto",
+              );
+          });
       });
-    });
   });
 }
 
@@ -205,224 +426,440 @@ function eliminarProducto(id) {
   if (tipoUsuario === "admin" || tipoUsuario === "root") {
     return confirmarEliminacion(id);
   }
-  swalInfo.fire({
-    title: "Ingrese código de administrador",
-    input: "password",
-    inputPlaceholder: "Código...",
-    showCancelButton: true,
-    confirmButtonText: "Validar",
-    preConfirm: (codigo) => {
-      if (!codigo) {
-        Swal.showValidationMessage("Debes ingresar un código");
-        return false;
-      }
-      return fetch("../php/validar_codigo_admin.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ codigo })
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (!data.success) {
-            throw new Error("Código inválido o no autorizado");
-          }
-          return true;
-        })
-        .catch(err => {
-          Swal.showValidationMessage(err.message);
+  swalInfo
+    .fire({
+      title: "Ingrese código de administrador",
+      input: "password",
+      inputPlaceholder: "Código...",
+      showCancelButton: true,
+      confirmButtonText: "Validar",
+      preConfirm: (codigo) => {
+        if (!codigo) {
+          Swal.showValidationMessage("Debes ingresar un código");
           return false;
-        });
-    }
-  }).then(result => {
-    if (result.isConfirmed) {
-      // Mostrar confirmación final de eliminación
-      swalInfo.fire({
-        title: "¿Eliminar producto?",
-        text: "Esta acción no se puede deshacer y se mostrara como categoria eliminada en el apartado de reportes.",
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonColor: "#e3342f",
-        cancelButtonColor: "#6c757d",
-        confirmButtonText: "Sí, eliminar"
-      }).then(confirm => {
-        if (confirm.isConfirmed) {
-          fetch(`../php/productos_controller.php?id=${id}`, { method: "DELETE" })
-            .then(res => res.json())
-            .then(data => {
-              if (data.success) {
-                swalSuccess.fire("Eliminado", data.message, "success").then(cargarProductos);
-              } else {
-                swalError.fire("Error", data.error || "No se pudo eliminar", "error");
-              }
-            })
-            .catch(() => {
-              swalError.fire("Error", "No se pudo conectar con el servidor", "error");
-            });
         }
-      });
-    }
-  });
+        return fetch("../php/validar_codigo_admin.php", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ codigo }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (!data.success) {
+              throw new Error("Código inválido o no autorizado");
+            }
+            return true;
+          })
+          .catch((err) => {
+            Swal.showValidationMessage(err.message);
+            return false;
+          });
+      },
+    })
+    .then((result) => {
+      if (result.isConfirmed) {
+        // Mostrar confirmación final de eliminación
+        swalInfo
+          .fire({
+            title: "¿Eliminar producto?",
+            text: "Esta acción no se puede deshacer y se mostrara como categoria eliminada en el apartado de reportes.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#e3342f",
+            cancelButtonColor: "#6c757d",
+            confirmButtonText: "Sí, eliminar",
+          })
+          .then((confirm) => {
+            if (confirm.isConfirmed) {
+              fetch(`../php/productos_controller.php?id=${id}`, {
+                method: "DELETE",
+              })
+                .then((res) => res.json())
+                .then((data) => {
+                  if (data.success) {
+                    swalSuccess
+                      .fire("Eliminado", data.message, "success")
+                      .then(cargarProductos);
+                  } else {
+                    swalError.fire(
+                      "Error",
+                      data.error || "No se pudo eliminar",
+                      "error",
+                    );
+                  }
+                })
+                .catch(() => {
+                  swalError.fire(
+                    "Error",
+                    "No se pudo conectar con el servidor",
+                    "error",
+                  );
+                });
+            }
+          });
+      }
+    });
 }
 function confirmarEliminacion(id) {
-  swalInfo.fire({
-    title: "¿Eliminar producto?",
-    text: "Esta acción no se puede deshacer",
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonColor: "#e3342f",
-    cancelButtonColor: "#6c757d",
-    confirmButtonText: "Sí, eliminar"
-  }).then(confirm => {
-    if (confirm.isConfirmed) {
-      fetch(`../php/productos_controller.php?id=${id}`, { method: "DELETE" })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            swalSuccess.fire("Eliminado", data.message, "success").then(cargarProductos);
-          } else {
-            swalError.fire("Error", data.error || "No se pudo eliminar", "error");
-          }
-        })
-        .catch(() => {
-          swalError.fire("Error", "No se pudo conectar con el servidor", "error");
-        });
-    }
-  });
+  swalInfo
+    .fire({
+      title: "¿Eliminar producto?",
+      text: "Esta acción no se puede deshacer",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#e3342f",
+      cancelButtonColor: "#6c757d",
+      confirmButtonText: "Sí, eliminar",
+    })
+    .then((confirm) => {
+      if (confirm.isConfirmed) {
+        fetch(`../php/productos_controller.php?id=${id}`, { method: "DELETE" })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.success) {
+              swalSuccess
+                .fire("Eliminado", data.message, "success")
+                .then(cargarProductos);
+            } else {
+              swalError.fire(
+                "Error",
+                data.error || "No se pudo eliminar",
+                "error",
+              );
+            }
+          })
+          .catch(() => {
+            swalError.fire(
+              "Error",
+              "No se pudo conectar con el servidor",
+              "error",
+            );
+          });
+      }
+    });
 }
 function editarProducto(id) {
   if (tipoUsuario === "admin" || tipoUsuario === "root") {
     ejecutarEdicionProducto(id); // acceso directo
     return;
   }
-  swalInfo.fire({
-    title: "Ingrese código de administrador",
-    input: "password",
-    inputPlaceholder: "Código...",
-    showCancelButton: true,
-    confirmButtonText: "Validar",
-    preConfirm: (codigo) => {
-      if (!codigo) {
-        Swal.showValidationMessage("Debes ingresar un código");
-        return false;
-      }
-      return fetch("../php/validar_codigo_admin.php", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ codigo })
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (!data.success) {
-            throw new Error("Código inválido o no autorizado");
-          }
-          return true;
-        })
-        .catch(err => {
-          Swal.showValidationMessage(err.message);
+  swalInfo
+    .fire({
+      title: "Ingrese código de administrador",
+      input: "password",
+      inputPlaceholder: "Código...",
+      showCancelButton: true,
+      confirmButtonText: "Validar",
+      preConfirm: (codigo) => {
+        if (!codigo) {
+          Swal.showValidationMessage("Debes ingresar un código");
           return false;
-        });
-    }
-  }).then(result => {
-    if (result.isConfirmed) {
-      ejecutarEdicionProducto(id); // 🔁 aquí va tu función original, que renombraremos
-    }
-  });
+        }
+        return fetch("../php/validar_codigo_admin.php", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ codigo }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (!data.success) {
+              throw new Error("Código inválido o no autorizado");
+            }
+            return true;
+          })
+          .catch((err) => {
+            Swal.showValidationMessage(err.message);
+            return false;
+          });
+      },
+    })
+    .then((result) => {
+      if (result.isConfirmed) {
+        ejecutarEdicionProducto(id); // 🔁 aquí va tu función original, que renombraremos
+      }
+    });
 }
 
 function ejecutarEdicionProducto(id) {
-  // Traer producto, categorías y proveedores activos
   Promise.all([
-    fetch(`../php/productos_controller.php?id=${id}`).then(r=>r.json()),
-    fetch("../php/categorias_controller.php").then(r=>r.json()),
-    fetch("../php/proveedores_controller.php?action=listar&activo=1&limit=200").then(r=>r.json())
+    fetch(`../php/productos_controller.php?id=${id}`).then(r => r.json()),
+    fetch("../php/categorias_controller.php").then(r => r.json()),
+    fetch("../php/proveedores_controller.php?action=listar&activo=1&limit=200").then(r => r.json())
   ]).then(([producto, catData, provData]) => {
+    if (producto.error) {
+      swalError.fire("Error", producto.error || "No se pudo cargar el producto", "error");
+      return;
+    }
+
     const categoriasOptions = (catData.categorias || [])
-      .map(cat => `<option value="${cat.id}" ${cat.id == producto.categoria_id ? 'selected':''}>${cat.nombre}</option>`)
+      .map(cat => `
+        <option value="${cat.id}" ${cat.id == producto.categoria_id ? "selected" : ""}>
+          ${cat.nombre}
+        </option>
+      `)
       .join("");
 
     const provOptions = [
       `<option value="">— Sin proveedor —</option>`,
-      ...(provData.proveedores || []).map(pr =>
-        `<option value="${pr.id}" ${pr.id == (producto.proveedor_id ?? '') ? 'selected':''}>${pr.nombre}</option>`
-      )
+      ...(provData.proveedores || []).map(pr => `
+        <option value="${pr.id}" ${pr.id == (producto.proveedor_id ?? "") ? "selected" : ""}>
+          ${pr.nombre}
+        </option>
+      `)
     ].join("");
+
+    const propietario = producto.propietario || "Usuario actual";
 
     swalcard.fire({
       title: "Editar Producto",
-      width: 680,
+      width: 820,
       html: `
-        <div class="grid text-left text-sm text-white">
-          <label class="font-semibold mx-auto">Código de Barras:</label>
-          <input id="codigo" class="swal2-input mx-auto w-3/4" value="${producto.codigo||''}">
+        <div class="text-left text-sm text-slate-200 space-y-4">
 
-          <label class="font-semibold mx-auto mt-2">Nombre del Producto:</label>
-          <input id="nombre" class="swal2-input mx-auto w-3/4" value="${producto.nombre||''}">
+          <div class="rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
+            <p class="text-sm text-yellow-100">
+              Estás editando el inventario de:
+              <span class="font-bold text-white">${propietario}</span>
+            </p>
+            <p class="text-xs text-yellow-200/80 mt-1">
+              Los cambios de precio, costo, proveedor y stock afectan únicamente este inventario.
+            </p>
+          </div>
 
-          <label class="font-semibold mx-auto mt-2">Descripción:</label>
-          <textarea id="descripcion" class="swal2-textarea mx-auto w-3/4" rows="2">${producto.descripcion||''}</textarea>
-
-          <div class="mx-auto w-3/4 grid grid-cols-2 gap-3 mt-2">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="font-semibold">Precio (venta):</label>
-              <input id="precio" type="number" step="0.01" class="swal2-input w-full" value="${producto.precio||0}">
+              <label class="block mb-1 font-semibold text-slate-300">Código de barras</label>
+              <input
+                id="codigo"
+                inputmode="numeric"
+                pattern="\\d*"
+                class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-yellow-500"
+                value="${producto.codigo || ""}"
+              >
             </div>
+
             <div>
-              <label class="font-semibold">Costo proveedor:</label>
-              <input id="precio_proveedor" type="number" step="0.01" class="swal2-input w-full" value="${producto.precio_proveedor||0}">
+              <label class="block mb-1 font-semibold text-slate-300">Nombre del producto</label>
+              <input
+                id="nombre"
+                class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-yellow-500"
+                value="${producto.nombre || ""}"
+              >
             </div>
           </div>
 
-          <label class="font-semibold mx-auto mt-2 mb-2">Proveedor:</label>
-          <select id="proveedor_id" class="mx-auto mt-1 w-3/4 p-2 rounded border border-slate-600 bg-slate-800 text-slate-100">
-            ${provOptions}
-          </select>
+          <div>
+            <label class="block mb-1 font-semibold text-slate-300">Descripción</label>
+            <textarea
+              id="descripcion"
+              rows="3"
+              class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-yellow-500 resize-none"
+            >${producto.descripcion || ""}</textarea>
+          </div>
 
-          <label class="font-semibold mx-auto mt-2 mb-2">Categoría:</label>
-          <select id="categoria_id" class="mx-auto mt-1 w-3/4 p-2 rounded border border-slate-600 bg-slate-800 text-slate-100">
-            <option disabled value="">Selecciona categoría</option>
-            ${categoriasOptions}
-          </select>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block mb-1 font-semibold text-slate-300">Precio venta</label>
+              <div class="relative">
+                <span class="absolute left-3 top-2.5 text-slate-400">$</span>
+                <input
+                  id="precio"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full rounded-lg bg-slate-900 border border-slate-600 pl-7 pr-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-yellow-500"
+                  value="${producto.precio || 0}"
+                >
+              </div>
+            </div>
 
-          <label class="font-semibold mx-auto mt-2">Stock (solo lectura):</label>
-          <input id="stock" type="number" min="0" class="swal2-input mx-auto w-3/4" value="${producto.stock||0}" readonly>
+            <div>
+              <label class="block mb-1 font-semibold text-slate-300">Costo proveedor</label>
+              <div class="relative">
+                <span class="absolute left-3 top-2.5 text-slate-400">$</span>
+                <input
+                  id="precio_proveedor"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full rounded-lg bg-slate-900 border border-slate-600 pl-7 pr-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-yellow-500"
+                  value="${producto.precio_proveedor || 0}"
+                >
+              </div>
+            </div>
+
+            <div>
+              <label class="block mb-1 font-semibold text-slate-300">Stock actual</label>
+              <input
+                id="stock"
+                type="number"
+                min="0"
+                step="1"
+                class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-400 outline-none cursor-not-allowed"
+                value="${producto.stock || 0}"
+                readonly
+              >
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block mb-1 font-semibold text-slate-300">Proveedor</label>
+              <select
+                id="proveedor_id"
+                class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-yellow-500"
+              >
+                ${provOptions}
+              </select>
+            </div>
+
+            <div>
+              <label class="block mb-1 font-semibold text-slate-300">Categoría</label>
+              <select
+                id="categoria_id"
+                class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-yellow-500"
+              >
+                <option disabled value="">Selecciona categoría</option>
+                ${categoriasOptions}
+              </select>
+            </div>
+          </div>
+
+          <div class="rounded-xl bg-slate-900/70 border border-slate-700 px-4 py-3">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-center">
+              <div>
+                <p class="text-xs text-slate-400">Ganancia unitaria</p>
+                <p id="editPreviewGanancia" class="text-lg font-bold text-emerald-400">$0.00</p>
+              </div>
+              <div>
+                <p class="text-xs text-slate-400">Inversión actual</p>
+                <p id="editPreviewInversion" class="text-lg font-bold text-yellow-400">$0.00</p>
+              </div>
+              <div>
+                <p class="text-xs text-slate-400">Venta estimada</p>
+                <p id="editPreviewVentaTotal" class="text-lg font-bold text-blue-400">$0.00</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-slate-700 bg-slate-900/40 px-4 py-3">
+            <p class="text-xs text-slate-400">
+              Para sumar o restar stock usa el botón <b>＋／－ Movimiento</b>. 
+              Así queda historial de entradas y salidas.
+            </p>
+          </div>
+
         </div>
       `,
       confirmButtonText: "Guardar Cambios",
+      cancelButtonText: "Cancelar",
       showCancelButton: true,
-      didOpen: () => Swal.getPopup().classList.add('bg-slate-800','text-slate-100'),
+      focusConfirm: false,
+      didOpen: () => {
+        Swal.getPopup().classList.add("bg-slate-800", "text-slate-100");
+
+        const precioInput = document.getElementById("precio");
+        const costoInput = document.getElementById("precio_proveedor");
+        const stockInput = document.getElementById("stock");
+
+        const previewGanancia = document.getElementById("editPreviewGanancia");
+        const previewInversion = document.getElementById("editPreviewInversion");
+        const previewVentaTotal = document.getElementById("editPreviewVentaTotal");
+
+        const formato = valor => `$${Number(valor || 0).toFixed(2)}`;
+
+        const actualizarPreview = () => {
+          const precio = parseFloat(precioInput.value) || 0;
+          const costo = parseFloat(costoInput.value) || 0;
+          const stock = parseInt(stockInput.value || "0", 10) || 0;
+
+          const ganancia = precio - costo;
+          const inversion = costo * stock;
+          const ventaTotal = precio * stock;
+
+          previewGanancia.textContent = formato(ganancia);
+          previewInversion.textContent = formato(inversion);
+          previewVentaTotal.textContent = formato(ventaTotal);
+
+          previewGanancia.classList.toggle("text-red-400", ganancia < 0);
+          previewGanancia.classList.toggle("text-emerald-400", ganancia >= 0);
+        };
+
+        precioInput.addEventListener("input", actualizarPreview);
+        costoInput.addEventListener("input", actualizarPreview);
+
+        actualizarPreview();
+      },
       preConfirm: () => {
         const codigo = document.getElementById("codigo").value.trim();
         const nombre = document.getElementById("nombre").value.trim();
         const descripcion = document.getElementById("descripcion").value.trim();
         const precio = parseFloat(document.getElementById("precio").value);
         const precio_proveedor = parseFloat(document.getElementById("precio_proveedor").value || "0");
-        const stock = parseInt(document.getElementById("stock").value);
+        const stock = parseInt(document.getElementById("stock").value || "0", 10);
         const categoria_id = parseInt(document.getElementById("categoria_id").value);
         const provSel = document.getElementById("proveedor_id").value;
-        const proveedor_id = provSel ? parseInt(provSel,10) : null;
+        const proveedor_id = provSel ? parseInt(provSel, 10) : null;
 
-        if (!codigo || !/^\d+$/.test(codigo)) return Swal.showValidationMessage("Código inválido.");
-        if (!nombre) return Swal.showValidationMessage("El nombre es obligatorio.");
-        if (!descripcion) return Swal.showValidationMessage("La descripción es obligatoria.");
-        if (isNaN(precio) || precio < 0) return Swal.showValidationMessage("Precio inválido.");
-        if (isNaN(precio_proveedor) || precio_proveedor < 0) return Swal.showValidationMessage("Costo proveedor inválido.");
-        if (!Number.isInteger(stock) || stock < 0) return Swal.showValidationMessage("Stock inválido.");
-        if (isNaN(categoria_id)) return Swal.showValidationMessage("Selecciona una categoría.");
+        if (!codigo || !/^\d+$/.test(codigo)) {
+          return Swal.showValidationMessage("Código inválido.");
+        }
 
-        return { id, codigo, nombre, descripcion, precio, precio_proveedor, stock, categoria_id, proveedor_id };
+        if (!nombre) {
+          return Swal.showValidationMessage("El nombre es obligatorio.");
+        }
+
+        if (!descripcion) {
+          return Swal.showValidationMessage("La descripción es obligatoria.");
+        }
+
+        if (isNaN(precio) || precio < 0) {
+          return Swal.showValidationMessage("Precio inválido.");
+        }
+
+        if (isNaN(precio_proveedor) || precio_proveedor < 0) {
+          return Swal.showValidationMessage("Costo proveedor inválido.");
+        }
+
+        if (isNaN(categoria_id)) {
+          return Swal.showValidationMessage("Selecciona una categoría.");
+        }
+
+        return {
+          id,
+          inventario_usuario_id: id,
+          producto_id: producto.producto_id,
+          codigo,
+          nombre,
+          descripcion,
+          precio,
+          precio_proveedor,
+          stock,
+          categoria_id,
+          proveedor_id
+        };
       }
     }).then((result) => {
       if (!result.isConfirmed) return;
+
       fetch("../php/productos_controller.php", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(result.value),
       })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) swalSuccess.fire("Actualizado", data.msg, "success").then(()=>cargarProductos(paginaActual));
-        else swalError.fire("Error", data.error || "No se pudo actualizar", "error");
-      });
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            swalSuccess
+              .fire("Actualizado", data.msg, "success")
+              .then(() => cargarProductos(paginaActual));
+          } else {
+            swalError.fire("Error", data.error || "No se pudo actualizar", "error");
+          }
+        })
+        .catch(() => {
+          swalError.fire("Error", "No se pudo conectar con el servidor", "error");
+        });
     });
   });
 }
@@ -441,6 +878,7 @@ async function abrirModalMovimiento() {
             <div class="text-xs uppercase text-slate-300">Producto</div>
             <div id="mv-nombre" class="font-semibold text-slate-100"></div>
             <div id="mv-codigo" class="text-xs text-slate-300"></div>
+            <div id="mv-dueno" class="text-xs text-blue-300"></div>
             <div id="mv-categoria" class="text-xs text-slate-400"></div>
           </div>
           <div class="text-right">
@@ -486,135 +924,218 @@ async function abrirModalMovimiento() {
     focusConfirm: false,
     allowOutsideClick: false, // 👈 evita cierres al hacer click fuera
     didOpen: () => {
-  Swal.getPopup().classList.add('bg-slate-800','text-slate-100');
+      Swal.getPopup().classList.add("bg-slate-800", "text-slate-100");
 
-  const $buscar  = document.getElementById('mv-buscar');
-  const $res     = document.getElementById('mv-resultados');
-  const $info    = document.getElementById('mv-info');
+      const $buscar = document.getElementById("mv-buscar");
+      const $res = document.getElementById("mv-resultados");
+      const $info = document.getElementById("mv-info");
 
-  const $id       = document.getElementById('mv-producto-id');
-  const $stock    = document.getElementById('mv-stock-actual');
-  const $nombre   = document.getElementById('mv-nombre');
-  const $codigo   = document.getElementById('mv-codigo');
-  const $cat      = document.getElementById('mv-categoria');
-  const $stockLbl = document.getElementById('mv-stock');
-  const $op       = document.getElementById('mv-op');
-  const $cant     = document.getElementById('mv-cant');
-  const $preview  = document.getElementById('mv-preview');
+      const $id = document.getElementById("mv-producto-id");
+      const $stock = document.getElementById("mv-stock-actual");
+      const $nombre = document.getElementById("mv-nombre");
+      const $codigo = document.getElementById("mv-codigo");
+      const $dueno = document.getElementById("mv-dueno");
+      const $cat = document.getElementById("mv-categoria");
+      const $stockLbl = document.getElementById("mv-stock");
+      const $op = document.getElementById("mv-op");
+      const $cant = document.getElementById("mv-cant");
+      const $preview = document.getElementById("mv-preview");
 
-  // helpers fuertes (ganan a Tailwind)
-  const showResults = () => { $res.style.display = 'block'; };
-  const hideResults = () => { $res.style.display = 'none'; };
+      // helpers fuertes (ganan a Tailwind)
+      const showResults = () => {
+        $res.style.display = "block";
+      };
+      const hideResults = () => {
+        $res.style.display = "none";
+      };
 
-  hideResults(); // arrancar oculto
+      hideResults(); // arrancar oculto
 
-  let timer;
-  const pintarPreview = () => {
-    const actual = parseFloat($stock.value || '0');
-    const cant   = parseFloat($cant.value || '0');
-    if (!cant || cant <= 0) { $preview.textContent = '—'; return; }
-    const signo = ($op.value === 'ingreso') ? +1 : -1;
-    const nuevo = actual + signo * cant;
-    $preview.textContent = (nuevo < 0) ? 'ERROR (negativo)' : String(nuevo);
-  };
+      let timer;
+      const pintarPreview = () => {
+        const actual = parseFloat($stock.value || "0");
+        const cant = parseFloat($cant.value || "0");
+        if (!cant || cant <= 0) {
+          $preview.textContent = "—";
+          return;
+        }
+        const signo = $op.value === "ingreso" ? +1 : -1;
+        const nuevo = actual + signo * cant;
+        $preview.textContent = nuevo < 0 ? "ERROR (negativo)" : String(nuevo);
+      };
 
-  $op.addEventListener('change', pintarPreview);
-  $cant.addEventListener('input', pintarPreview);
+      $op.addEventListener("change", pintarPreview);
+      $cant.addEventListener("input", pintarPreview);
 
-  // buscar
-  $buscar.addEventListener('input', () => {
-    clearTimeout(timer);
-    const q = $buscar.value.trim();
+      // buscar
+      $buscar.addEventListener("input", () => {
+        clearTimeout(timer);
+        const q = $buscar.value.trim();
 
-    if (!q) {
-      $res.innerHTML = '';
-      hideResults();
-      return;
-    }
-
-    showResults();
-
-    timer = setTimeout(async () => {
-      const params = new URLSearchParams({ limit: 10, offset: 0, busqueda: q });
-      const data = await fetch(`../php/productos_controller.php?${params}`).then(r=>r.json());
-
-      if (!data.success || !data.productos.length) {
-        $res.innerHTML = `<div class="p-3 text-slate-400">Sin resultados</div>`;
-        return;
-      }
-
-      $res.innerHTML = data.productos.map(p => `
-        <button type="button" data-id="${p.id}" data-codigo="${p.codigo}"
-          data-nombre="${p.nombre}" data-stock="${p.stock}" data-cat="${p.categoria ?? ''}"
-          class="w-full text-left px-3 py-2 hover:bg-slate-700">
-          <div class="font-semibold">${p.codigo} — ${p.nombre}</div>
-          <div class="text-xs text-slate-400">Stock: ${p.stock} · ${p.categoria ?? ''}</div>
-        </button>
-      `).join('');
-
-      // seleccionar producto
-      Array.from($res.querySelectorAll('button')).forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.preventDefault(); e.stopPropagation();
-
-          $id.value             = btn.dataset.id;
-          $stock.value          = btn.dataset.stock;
-          $nombre.textContent   = btn.dataset.nombre;
-          $codigo.textContent   = `Código: ${btn.dataset.codigo}`;
-          $cat.textContent      = btn.dataset.cat ? `Categoría: ${btn.dataset.cat}` : '';
-          $stockLbl.textContent = btn.dataset.stock;
-
-          $info.classList.remove('hidden'); // muestra tarjeta
-
-          $cant.value = '';
-          $preview.textContent = '—';
-
-          // cerrar lista hasta nueva escritura
-          $buscar.value = `${btn.dataset.codigo} — ${btn.dataset.nombre}`; // opcional
-          $res.innerHTML = '';
+        if (!q) {
+          $res.innerHTML = "";
           hideResults();
-          $buscar.blur(); // opcional
-        });
-      });
-    }, 250);
-  });
+          return;
+        }
 
-  // cerrar con ESC
-  $buscar.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape') { $res.innerHTML = ''; hideResults(); }
-  });
-},
+        showResults();
+
+        timer = setTimeout(async () => {
+          const params = new URLSearchParams({
+            limit: 10,
+            offset: 0,
+            busqueda: q,
+          });
+          const data = await fetch(
+            `../php/productos_controller.php?${params}`,
+          ).then((r) => r.json());
+
+          if (!data.success || !data.productos.length) {
+            $res.innerHTML = `<div class="p-3 text-slate-400">Sin resultados</div>`;
+            return;
+          }
+
+          $res.innerHTML = data.productos
+  .map(
+    (p) => `
+      <button 
+        type="button" 
+        data-id="${p.id}" 
+        data-codigo="${p.codigo}"
+        data-nombre="${p.nombre}" 
+        data-stock="${p.stock}" 
+        data-cat="${p.categoria ?? ""}"
+        data-propietario="${p.propietario ?? "—"}"
+        class="w-full text-left px-3 py-3 hover:bg-slate-700 border-b border-slate-700 last:border-b-0"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="font-semibold text-slate-100">
+              ${p.codigo} — ${p.nombre}
+            </div>
+
+            <div class="text-xs text-blue-300 mt-1">
+              Dueño: <span class="font-semibold">${p.propietario ?? "—"}</span>
+            </div>
+
+            <div class="text-xs text-slate-400 mt-1">
+              Stock: ${p.stock} · ${p.categoria ?? ""}
+            </div>
+          </div>
+
+          <div class="text-right">
+            <div class="text-xs text-slate-400">Venta</div>
+            <div class="font-semibold text-emerald-400">
+              $${Number(p.precio ?? 0).toFixed(2)}
+            </div>
+          </div>
+        </div>
+      </button>
+    `,
+  )
+  .join("");
+
+          // seleccionar producto
+          Array.from($res.querySelectorAll("button")).forEach((btn) => {
+            btn.addEventListener("click", (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+
+              $id.value = btn.dataset.id;
+              $stock.value = btn.dataset.stock;
+
+              $nombre.textContent = btn.dataset.nombre;
+              $codigo.textContent = `Código: ${btn.dataset.codigo}`;
+              $dueno.textContent = `Dueño: ${btn.dataset.propietario || "—"}`;
+              $cat.textContent = btn.dataset.cat
+                ? `Categoría: ${btn.dataset.cat}`
+                : "";
+
+              $stockLbl.textContent = btn.dataset.stock;
+
+              $info.classList.remove("hidden"); // muestra tarjeta
+
+              $cant.value = "";
+              $preview.textContent = "—";
+
+              // cerrar lista hasta nueva escritura
+              $buscar.value = `${btn.dataset.codigo} — ${btn.dataset.nombre} (${btn.dataset.propietario || "—"})`;
+              $res.innerHTML = "";
+              hideResults();
+              $buscar.blur(); // opcional
+            });
+          });
+        }, 250);
+      });
+
+      // cerrar con ESC
+      $buscar.addEventListener("keydown", (ev) => {
+        if (ev.key === "Escape") {
+          $res.innerHTML = "";
+          hideResults();
+        }
+      });
+    },
 
     preConfirm: () => {
-      const producto_id = parseInt(document.getElementById('mv-producto-id').value || '0', 10);
-      const tipo = document.getElementById('mv-op').value;
-      const cantidad = parseFloat(document.getElementById('mv-cant').value || '0');
-      const nota = document.getElementById('mv-nota') ? document.getElementById('mv-nota').value.trim() : '';
-      const stockActual = parseFloat(document.getElementById('mv-stock-actual').value || '0');
+      const producto_id = parseInt(
+        document.getElementById("mv-producto-id").value || "0",
+        10,
+      );
+      const tipo = document.getElementById("mv-op").value;
+      const cantidad = parseFloat(
+        document.getElementById("mv-cant").value || "0",
+      );
+      const nota = document.getElementById("mv-nota")
+        ? document.getElementById("mv-nota").value.trim()
+        : "";
+      const stockActual = parseFloat(
+        document.getElementById("mv-stock-actual").value || "0",
+      );
 
-      if (!producto_id) { Swal.showValidationMessage('Selecciona un producto de la lista.'); return false; }
-      if (!cantidad || cantidad <= 0) { Swal.showValidationMessage('La cantidad debe ser mayor a 0'); return false; }
-      if (tipo === 'ajuste-' && stockActual - cantidad < 0) {
-        Swal.showValidationMessage('El movimiento dejaría el stock en negativo.');
+      if (!producto_id) {
+        Swal.showValidationMessage("Selecciona un producto de la lista.");
+        return false;
+      }
+      if (!cantidad || cantidad <= 0) {
+        Swal.showValidationMessage("La cantidad debe ser mayor a 0");
+        return false;
+      }
+      if (tipo === "ajuste-" && stockActual - cantidad < 0) {
+        Swal.showValidationMessage(
+          "El movimiento dejaría el stock en negativo.",
+        );
         return false;
       }
       return { producto_id, tipo, cantidad, nota };
-    }
+    },
   });
 
   if (!value) return;
 
-  const res = await fetch('../php/productos_controller.php?accion=ajustar_stock', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(value)
-  }).then(r=>r.json());
+  const res = await fetch(
+    "../php/productos_controller.php?accion=ajustar_stock",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(value),
+    },
+  ).then((r) => r.json());
 
   if (res.ok) {
-    swalSuccess.fire('Movimiento registrado', `Stock después: <b>${res.stock_despues}</b>`, 'success')
+    swalSuccess
+      .fire(
+        "Movimiento registrado",
+        `Stock después: <b>${res.stock_despues}</b>`,
+        "success",
+      )
       .then(() => cargarProductos(paginaActual));
   } else {
-    swalError.fire('Error', res.error || 'No se pudo registrar el movimiento', 'error');
+    swalError.fire(
+      "Error",
+      res.error || "No se pudo registrar el movimiento",
+      "error",
+    );
   }
 }
 async function abrirModalReporte() {
@@ -665,102 +1186,125 @@ async function abrirModalReporte() {
     focusConfirm: false,
     allowOutsideClick: false,
     didOpen: () => {
-      Swal.getPopup().classList.add('bg-slate-800','text-slate-100');
+      Swal.getPopup().classList.add("bg-slate-800", "text-slate-100");
 
-      const tipoSel = document.getElementById('rep-tipo');
-      const bloques = Array.from(document.querySelectorAll('#rep-campos [data-for]'));
+      const tipoSel = document.getElementById("rep-tipo");
+      const bloques = Array.from(
+        document.querySelectorAll("#rep-campos [data-for]"),
+      );
       const switcher = () => {
         const t = tipoSel.value;
-        bloques.forEach(b => b.classList.toggle('hidden', b.getAttribute('data-for') !== t));
+        bloques.forEach((b) =>
+          b.classList.toggle("hidden", b.getAttribute("data-for") !== t),
+        );
       };
-      tipoSel.addEventListener('change', switcher);
+      tipoSel.addEventListener("change", switcher);
       switcher();
     },
     preConfirm: () => {
-      const tipo = document.getElementById('rep-tipo').value;
-      let qs = new URLSearchParams({ accion: 'reporte_movimientos', tipo });
+      const tipo = document.getElementById("rep-tipo").value;
+      let qs = new URLSearchParams({ accion: "reporte_movimientos", tipo });
 
-      if (tipo === 'dia') {
-        const f = document.getElementById('rep-dia').value;
-        if (!f) { Swal.showValidationMessage('Selecciona una fecha'); return false; }
-        qs.set('fecha', f);
-      } else if (tipo === 'mes') {
-        const m = document.getElementById('rep-mes').value;
-        if (!m) { Swal.showValidationMessage('Selecciona un mes'); return false; }
-        qs.set('fecha', m); // YYYY-MM
-      } else if (tipo === 'anio') {
-        const a = document.getElementById('rep-anio').value;
-        if (!a) { Swal.showValidationMessage('Escribe un año'); return false; }
-        qs.set('fecha', a); // YYYY
+      if (tipo === "dia") {
+        const f = document.getElementById("rep-dia").value;
+        if (!f) {
+          Swal.showValidationMessage("Selecciona una fecha");
+          return false;
+        }
+        qs.set("fecha", f);
+      } else if (tipo === "mes") {
+        const m = document.getElementById("rep-mes").value;
+        if (!m) {
+          Swal.showValidationMessage("Selecciona un mes");
+          return false;
+        }
+        qs.set("fecha", m); // YYYY-MM
+      } else if (tipo === "anio") {
+        const a = document.getElementById("rep-anio").value;
+        if (!a) {
+          Swal.showValidationMessage("Escribe un año");
+          return false;
+        }
+        qs.set("fecha", a); // YYYY
       } else {
-        const i = document.getElementById('rep-inicio').value;
-        const f = document.getElementById('rep-fin').value;
-        if (!i || !f) { Swal.showValidationMessage('Completa el rango'); return false; }
-        qs.set('inicio', i); qs.set('fin', f);
+        const i = document.getElementById("rep-inicio").value;
+        const f = document.getElementById("rep-fin").value;
+        if (!i || !f) {
+          Swal.showValidationMessage("Completa el rango");
+          return false;
+        }
+        qs.set("inicio", i);
+        qs.set("fin", f);
       }
       return qs.toString();
-    }
+    },
   });
 
   if (!filtros) return;
 
   const data = await fetch(`../php/productos_controller.php?${filtros}`)
-    .then(r => r.json())
-    .catch(() => ({ ok:false, error:'No se pudo obtener el reporte' }));
+    .then((r) => r.json())
+    .catch(() => ({ ok: false, error: "No se pudo obtener el reporte" }));
 
-if (!data.ok) {
-  swalError.fire('Error', data.error || 'No se pudo obtener el reporte', 'error');
-  return;
-}
+  if (!data.ok) {
+    swalError.fire(
+      "Error",
+      data.error || "No se pudo obtener el reporte",
+      "error",
+    );
+    return;
+  }
 
-// Calcula etiqueta del filtro a partir de los parámetros usados
-const paramsSel = new URLSearchParams(filtros);
-const tipoSel = paramsSel.get('tipo');
-let etiquetaFiltro = '';
-if (tipoSel === 'dia')   etiquetaFiltro = `Día: ${paramsSel.get('fecha')}`;
-else if (tipoSel === 'mes')  etiquetaFiltro = `Mes: ${paramsSel.get('fecha')}`;
-else if (tipoSel === 'anio') etiquetaFiltro = `Año: ${paramsSel.get('fecha')}`;
-else etiquetaFiltro = `Rango: ${paramsSel.get('inicio')} → ${paramsSel.get('fin')}`;
+  // Calcula etiqueta del filtro a partir de los parámetros usados
+  const paramsSel = new URLSearchParams(filtros);
+  const tipoSel = paramsSel.get("tipo");
+  let etiquetaFiltro = "";
+  if (tipoSel === "dia") etiquetaFiltro = `Día: ${paramsSel.get("fecha")}`;
+  else if (tipoSel === "mes") etiquetaFiltro = `Mes: ${paramsSel.get("fecha")}`;
+  else if (tipoSel === "anio")
+    etiquetaFiltro = `Año: ${paramsSel.get("fecha")}`;
+  else
+    etiquetaFiltro = `Rango: ${paramsSel.get("inicio")} → ${paramsSel.get("fin")}`;
 
-const htmlReporte = renderReporteMovimientos(data);
+  const htmlReporte = renderReporteMovimientos(data);
 
-await swalcard.fire({
-  title: `Movimientos (${data.desde} → ${data.hasta})`,
-  width: 900,
-  html: htmlReporte,
-  focusConfirm: false,
-  showCloseButton: true,
-  showConfirmButton: false,
-  didOpen: () => {
-    Swal.getPopup().classList.add('bg-slate-800','text-slate-100');
-    const $btn = document.getElementById('btnPdfRep');
-    if ($btn) {
-      $btn.addEventListener('click', () => {
-        generarPDFInventarioMovs(data, {
-          etiquetaFiltro, // texto humano del filtro elegido
-          tipo: tipoSel,  // 'dia' | 'mes' | 'anio' | 'rango'
-          desde: data.desde,
-          hasta: data.hasta
+  await swalcard.fire({
+    title: `Movimientos (${data.desde} → ${data.hasta})`,
+    width: 900,
+    html: htmlReporte,
+    focusConfirm: false,
+    showCloseButton: true,
+    showConfirmButton: false,
+    didOpen: () => {
+      Swal.getPopup().classList.add("bg-slate-800", "text-slate-100");
+      const $btn = document.getElementById("btnPdfRep");
+      if ($btn) {
+        $btn.addEventListener("click", () => {
+          generarPDFInventarioMovs(data, {
+            etiquetaFiltro, // texto humano del filtro elegido
+            tipo: tipoSel, // 'dia' | 'mes' | 'anio' | 'rango'
+            desde: data.desde,
+            hasta: data.hasta,
+          });
         });
-      });
-    }
-  },
-});
+      }
+    },
+  });
 }
 
 function renderReporteMovimientos(data) {
   const esc = (s) =>
-    String(s ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    String(s ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
 
-  const cont = document.createElement('div');
-  cont.className = 'max-h-[70vh] overflow-auto text-sm';
+  const cont = document.createElement("div");
+  cont.className = "max-h-[70vh] overflow-auto text-sm";
 
   // Toolbar con botón PDF
-  const toolbar = document.createElement('div');
-  toolbar.className = 'flex justify-end mb-3';
+  const toolbar = document.createElement("div");
+  toolbar.className = "flex justify-end mb-3";
   toolbar.innerHTML = `
     <button id="btnPdfRep" class="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded">
       Generar PDF
@@ -769,25 +1313,36 @@ function renderReporteMovimientos(data) {
   cont.appendChild(toolbar);
 
   if (!data.resumen.length) {
-    cont.appendChild(Object.assign(document.createElement('div'), {
-      className: 'p-4 rounded bg-slate-700 text-center',
-      textContent: 'Sin movimientos en el periodo seleccionado'
-    }));
+    cont.appendChild(
+      Object.assign(document.createElement("div"), {
+        className: "p-4 rounded bg-slate-700 text-center",
+        textContent: "Sin movimientos en el periodo seleccionado",
+      }),
+    );
     return cont.outerHTML;
   }
 
-  data.resumen.forEach(p => {
-    const card = document.createElement('div');
-    card.className = 'mb-4 p-3 rounded-lg bg-slate-700 border border-slate-600';
+  data.resumen.forEach((p) => {
+    const card = document.createElement("div");
+    card.className = "mb-4 p-3 rounded-lg bg-slate-700 border border-slate-600";
 
-    const stockAct = (p.stock_actual === null || p.stock_actual === undefined) ? '—' : p.stock_actual;
+    const stockAct =
+      p.stock_actual === null || p.stock_actual === undefined
+        ? "—"
+        : p.stock_actual;
 
     card.innerHTML = `
   <div class="flex items-center justify-between mb-2">
     <div>
       <div class="text-xs text-slate-300">Producto</div>
       <div class="font-semibold">${esc(p.codigo)} — ${esc(p.nombre)}</div>
+
+      <div class="mt-1 inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-900/60 border border-slate-600">
+        <span class="text-xs text-slate-400">Propietario:</span>
+        <span class="text-sm font-semibold text-blue-300">${esc(p.propietario || "—")}</span>
+      </div>
     </div>
+
     <div class="text-right">
       <div class="text-xs text-slate-300">Stock actual</div>
       <div class="font-bold">${stockAct}</div>
@@ -801,21 +1356,25 @@ function renderReporteMovimientos(data) {
       <th class="p-3 text-center">Tipo</th>
       <th class="p-3 text-center">Cantidad</th>
       <th class="p-3 text-center">Stock después</th>
-      <th class="p-3 text-center">Usuario</th>
+      <th class="p-3 text-center">Movimiento por</th>
       <th class="p-3 text-center">Nota</th>
   </tr>
 </thead>
       <tbody class="text-slate-100">
-        ${p.movimientos.map(m => `
+        ${p.movimientos
+          .map(
+            (m) => `
         <tr class="border-t border-slate-600 align-top">
         <td class="py-1 px-2 text-center whitespace-nowrap">${esc(m.fecha)}</td>
         <td class="py-1 px-2 text-center whitespace-nowrap">${esc(m.tipo)}</td>
         <td class="py-1 px-2 text-center whitespace-nowrap">${parseFloat(m.cantidad).toFixed(2)}</td>
         <td class="py-1 px-2 text-center whitespace-nowrap">${esc(m.stock_despues)}</td>
-        <td class="py-1 px-2 text-center whitespace-nowrap">${esc(m.usuario || '—')}</td>
-        <td class="py-1 px-2 text-center whitespace-pre-wrap break-words text-center">${esc(m.nota || '')}</td>
+        <td class="py-1 px-2 text-center whitespace-nowrap">${esc(m.usuario || "—")}</td>
+        <td class="py-1 px-2 text-center whitespace-pre-wrap break-words text-center">${esc(m.nota || "")}</td>
     </tr>
-  `).join('')}
+  `,
+          )
+          .join("")}
 </tbody>
     </table>
   </div>
@@ -829,10 +1388,10 @@ function renderReporteMovimientos(data) {
 
 async function generarPDFInventarioMovs(data, meta) {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'pt', format: 'letter' }); // 612 x 792
+  const doc = new jsPDF({ unit: "pt", format: "letter" }); // 612 x 792
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const M = 40;                 // margen
+  const M = 40; // margen
   const FS = { title: 13, meta: 9, th: 9, td: 9 };
   const LH = { th: 16, td: 14 }; // line-heights
   let y = M;
@@ -842,196 +1401,220 @@ async function generarPDFInventarioMovs(data, meta) {
   const fechaCreacion = now.toLocaleString();
 
   // Lee tamaño de dataURI
-  const getImageSize = (src) => new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
-    img.src = src;
-  });
+  const getImageSize = (src) =>
+    new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+      img.src = src;
+    });
 
   // Convierte a PNG si el mime no es PNG/JPEG
-  const toPNG = (dataURL) => new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      c.width = img.naturalWidth; c.height = img.naturalHeight;
-      c.getContext('2d').drawImage(img, 0, 0);
-      resolve(c.toDataURL('image/png'));
-    };
-    img.src = dataURL;
-  });
+  const toPNG = (dataURL) =>
+    new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement("canvas");
+        c.width = img.naturalWidth;
+        c.height = img.naturalHeight;
+        c.getContext("2d").drawImage(img, 0, 0);
+        resolve(c.toDataURL("image/png"));
+      };
+      img.src = dataURL;
+    });
 
   const getLogoReady = async () => {
     try {
-      const r = await fetch('../php/obtener_logo.php', { cache: 'no-store' });
+      const r = await fetch("../php/obtener_logo.php", { cache: "no-store" });
       const j = await r.json();
       if (!j.success || !j.base64) return null;
       let dataURI = j.base64;
-      let mime = (j.mime || '').toLowerCase();
-      if (!/png|jpe?g/.test(mime)) { dataURI = await toPNG(dataURI); mime = 'image/png'; }
+      let mime = (j.mime || "").toLowerCase();
+      if (!/png|jpe?g/.test(mime)) {
+        dataURI = await toPNG(dataURI);
+        mime = "image/png";
+      }
       const { w, h } = await getImageSize(dataURI);
       return { dataURI, mime, w, h };
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   };
-// helper: 'YYYY-MM-DD' (o 'YYYY-MM-DD HH:mm:ss') -> 'dd/mm/yyyy'
-function formatDMY(iso) {
-  if (!iso) return '';
-  const s = String(iso).trim();
-  const datePart = s.includes(' ') ? s.split(' ')[0] : s; // quita hora si viene
-  const [Y, M, D] = datePart.split('-');
-  return `${D}/${M}/${Y}`;
-}
-
-  // Header de página
-// --- HEADER con logo a la DERECHA ---
-const addHeader = (firstPage = false) => {
-  // barra superior suave
-  const headerH = 56;
-  doc.setFillColor(246, 248, 251);            // gris muy claro
-  doc.setDrawColor(220);
-  doc.rect(M, y, pageW - 2 * M, headerH, 'F');
-
-  // medidas y posiciones base
-  const paddingX = 12;
-  const textX = M + paddingX;
-  const textY = y + 16;
-
-  // dibuja logo a la DERECHA
-  let rightEdgeForText = pageW - M;           // límite derecho del bloque de texto
-  if (window.__logoReporteInv) {
-    const { dataURI, mime, w, h } = window.__logoReporteInv;
-    const fmt = (mime.includes('jpeg') || mime.includes('jpg')) ? 'JPEG' : 'PNG';
-    const maxH = 48, maxW = 160;
-    const ratio = w / h;
-    const drawW = Math.min(maxW, maxH * ratio);
-    const drawH = drawW / ratio;
-
-    const xLogo = pageW - M - drawW;          // 👉 alineado a la derecha
-    const yLogo = y + (headerH - drawH) / 2;  // centrado vertical en la barra
-    doc.addImage(dataURI, fmt, xLogo, yLogo, drawW, drawH);
-
-    rightEdgeForText = xLogo - paddingX;      // deja aire antes del logo
+  // helper: 'YYYY-MM-DD' (o 'YYYY-MM-DD HH:mm:ss') -> 'dd/mm/yyyy'
+  function formatDMY(iso) {
+    if (!iso) return "";
+    const s = String(iso).trim();
+    const datePart = s.includes(" ") ? s.split(" ")[0] : s; // quita hora si viene
+    const [Y, M, D] = datePart.split("-");
+    return `${D}/${M}/${Y}`;
   }
 
-  // título + metadatos (acotados para no chocar con el logo)
-  const maxTextW = Math.max(100, rightEdgeForText - textX);
+  // Header de página
+  // --- HEADER con logo a la DERECHA ---
+  const addHeader = (firstPage = false) => {
+    // barra superior suave
+    const headerH = 56;
+    doc.setFillColor(246, 248, 251); // gris muy claro
+    doc.setDrawColor(220);
+    doc.rect(M, y, pageW - 2 * M, headerH, "F");
 
-  doc.setTextColor(20);
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
-  doc.text(doc.splitTextToSize('Reporte de movimientos de inventario', maxTextW), textX, textY);
+    // medidas y posiciones base
+    const paddingX = 12;
+    const textX = M + paddingX;
+    const textY = y + 16;
 
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-  doc.text(`Creado: ${fechaCreacion}`, textX, textY + 16);
+    // dibuja logo a la DERECHA
+    let rightEdgeForText = pageW - M; // límite derecho del bloque de texto
+    if (window.__logoReporteInv) {
+      const { dataURI, mime, w, h } = window.__logoReporteInv;
+      const fmt =
+        mime.includes("jpeg") || mime.includes("jpg") ? "JPEG" : "PNG";
+      const maxH = 48,
+        maxW = 160;
+      const ratio = w / h;
+      const drawW = Math.min(maxW, maxH * ratio);
+      const drawH = drawW / ratio;
 
-  // si ya formateas dd/mm/yyyy en otro lado, reusa tus helpers/variables
-  const etiquetaLinea =
-  `${meta.etiquetaFiltro}    |    Ventana: ${meta.desde}  |  ${meta.hasta}`;
+      const xLogo = pageW - M - drawW; // 👉 alineado a la derecha
+      const yLogo = y + (headerH - drawH) / 2; // centrado vertical en la barra
+      doc.addImage(dataURI, fmt, xLogo, yLogo, drawW, drawH);
 
-  doc.text(doc.splitTextToSize(etiquetaLinea, maxTextW), textX, textY + 30);
+      rightEdgeForText = xLogo - paddingX; // deja aire antes del logo
+    }
 
-  // línea separadora y avance
-  y += headerH + 6;
-  doc.setDrawColor(210); doc.setLineWidth(0.6);
-  doc.line(M, y, pageW - M, y);
-  y += 8;
-};
+    // título + metadatos (acotados para no chocar con el logo)
+    const maxTextW = Math.max(100, rightEdgeForText - textX);
+
+    doc.setTextColor(20);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text(
+      doc.splitTextToSize("Reporte de movimientos de inventario", maxTextW),
+      textX,
+      textY,
+    );
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`Creado: ${fechaCreacion}`, textX, textY + 16);
+
+    // si ya formateas dd/mm/yyyy en otro lado, reusa tus helpers/variables
+    const etiquetaLinea = `${meta.etiquetaFiltro}    |    Ventana: ${meta.desde}  |  ${meta.hasta}`;
+
+    doc.text(doc.splitTextToSize(etiquetaLinea, maxTextW), textX, textY + 30);
+
+    // línea separadora y avance
+    y += headerH + 6;
+    doc.setDrawColor(210);
+    doc.setLineWidth(0.6);
+    doc.line(M, y, pageW - M, y);
+    y += 8;
+  };
 
   // Auto salto si no cabe N px más
   const ensureSpace = (needPx) => {
     if (y + needPx > pageH - M) {
-      doc.addPage(); y = M; addHeader();
+      doc.addPage();
+      y = M;
+      addHeader();
     }
   };
 
   // Dibuja encabezados de la tabla
   const drawTableHeader = (cols) => {
-  ensureSpace(LH.th + 8);
-  // banda oscura
-  doc.setFillColor(30, 41, 59);    // slate-800
-  doc.setTextColor(255);
-  doc.rect(M, y, pageW - 2*M, LH.th, 'F');
+    ensureSpace(LH.th + 8);
+    // banda oscura
+    doc.setFillColor(30, 41, 59); // slate-800
+    doc.setTextColor(255);
+    doc.rect(M, y, pageW - 2 * M, LH.th, "F");
 
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(FS.th);
-  let x = M;
-  cols.forEach(c => {
-    const tw = doc.getTextWidth(c.title);
-    doc.text(c.title, x + (c.w/2) - (tw/2), y + 11);  // <- centrado
-    x += c.w;
-  });
-  y += LH.th;
-  doc.setTextColor(0);
-};
-
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(FS.th);
+    let x = M;
+    cols.forEach((c) => {
+      const tw = doc.getTextWidth(c.title);
+      doc.text(c.title, x + c.w / 2 - tw / 2, y + 11); // <- centrado
+      x += c.w;
+    });
+    y += LH.th;
+    doc.setTextColor(0);
+  };
 
   // Dibuja una fila (alto dinámico por el wrap)
   const drawRow = (cols, row, zebra) => {
-  const paddX = 6, paddY = 6;
+    const paddX = 6,
+      paddY = 6;
 
-  // pre-wrap (centramos todo; “nota” sí puede ir en varias líneas)
-  const texts = cols.map(c => {
-    const val = (row[c.key] ?? '').toString();
-    if (c.key === 'nota') return doc.splitTextToSize(val, c.w - paddX*2);
-    return [val || ''];
-  });
+    // pre-wrap (centramos todo; “nota” sí puede ir en varias líneas)
+    const texts = cols.map((c) => {
+      const val = (row[c.key] ?? "").toString();
+      if (c.key === "nota") return doc.splitTextToSize(val, c.w - paddX * 2);
+      return [val || ""];
+    });
 
-  const maxLines = Math.max(1, ...texts.map(t => t.length));
-  const h = paddY*2 + (maxLines * (FS.td + 3));
-  ensureSpace(h);
+    const maxLines = Math.max(1, ...texts.map((t) => t.length));
+    const h = paddY * 2 + maxLines * (FS.td + 3);
+    ensureSpace(h);
 
-  if (zebra) { doc.setFillColor(250); doc.rect(M, y, pageW - 2*M, h, 'F'); }
-
-  let x = M;
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(FS.td);
-
-  // colores para el chip del tipo
-  const TYPE_COLORS = {
-    'ingreso':  [34,197,94],   // verde
-    'ajuste-':  [239,68,68],   // rojo
-    'ajuste+':  [34,197,94],
-    'devolucion+':[34,197,94],
-    'devolucion-':[239,68,68]
-  };
-
-  cols.forEach((c, i) => {
-    const lines = texts[i];
-
-    if (c.key === 'tipo') {
-      // dibuja "chip" centrado
-      const label = (row.tipo || '').toString();
-      const color = TYPE_COLORS[label] || [100,116,139]; // slate-500 fallback
-      const tw = doc.getTextWidth(label);
-      const chipW = tw + 14, chipH = FS.td + 6;
-      const cx = x + (c.w - chipW)/2;
-      const cy = y + (h - chipH)/2;
-
-      doc.setFillColor(color[0], color[1], color[2]);
-      if (doc.roundedRect) doc.roundedRect(cx, cy, chipW, chipH, 4, 4, 'F');
-      else doc.rect(cx, cy, chipW, chipH, 'F');
-
-      doc.setTextColor(255);
-      doc.setFont('helvetica','bold');
-      doc.text(label, x + (c.w/2) - (tw/2), cy + chipH/2 + 3); // centrado en el chip
-      doc.setTextColor(0);
-      doc.setFont('helvetica','normal');
-    } else {
-      // centrar horizontal y verticalmente
-      const blockH = (lines.length * (FS.td + 3)) - 3;
-      let yy = y + (h/2) - (blockH/2) + 9;
-      lines.forEach(l => {
-        const lw = doc.getTextWidth(l);
-        doc.text(l, x + (c.w/2) - (lw/2), yy);  // <- centrado
-        yy += (FS.td + 3);
-      });
+    if (zebra) {
+      doc.setFillColor(250);
+      doc.rect(M, y, pageW - 2 * M, h, "F");
     }
 
-    x += c.w;
-  });
+    let x = M;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(FS.td);
 
-  y += h;
-  doc.setDrawColor(230); doc.setLineWidth(0.3);
-  doc.line(M, y, pageW - M, y);
-  doc.setDrawColor(0);
-};
+    // colores para el chip del tipo
+    const TYPE_COLORS = {
+      ingreso: [34, 197, 94], // verde
+      "ajuste-": [239, 68, 68], // rojo
+      "ajuste+": [34, 197, 94],
+      "devolucion+": [34, 197, 94],
+      "devolucion-": [239, 68, 68],
+    };
 
+    cols.forEach((c, i) => {
+      const lines = texts[i];
+
+      if (c.key === "tipo") {
+        // dibuja "chip" centrado
+        const label = (row.tipo || "").toString();
+        const color = TYPE_COLORS[label] || [100, 116, 139]; // slate-500 fallback
+        const tw = doc.getTextWidth(label);
+        const chipW = tw + 14,
+          chipH = FS.td + 6;
+        const cx = x + (c.w - chipW) / 2;
+        const cy = y + (h - chipH) / 2;
+
+        doc.setFillColor(color[0], color[1], color[2]);
+        if (doc.roundedRect) doc.roundedRect(cx, cy, chipW, chipH, 4, 4, "F");
+        else doc.rect(cx, cy, chipW, chipH, "F");
+
+        doc.setTextColor(255);
+        doc.setFont("helvetica", "bold");
+        doc.text(label, x + c.w / 2 - tw / 2, cy + chipH / 2 + 3); // centrado en el chip
+        doc.setTextColor(0);
+        doc.setFont("helvetica", "normal");
+      } else {
+        // centrar horizontal y verticalmente
+        const blockH = lines.length * (FS.td + 3) - 3;
+        let yy = y + h / 2 - blockH / 2 + 9;
+        lines.forEach((l) => {
+          const lw = doc.getTextWidth(l);
+          doc.text(l, x + c.w / 2 - lw / 2, yy); // <- centrado
+          yy += FS.td + 3;
+        });
+      }
+
+      x += c.w;
+    });
+
+    y += h;
+    doc.setDrawColor(230);
+    doc.setLineWidth(0.3);
+    doc.line(M, y, pageW - M, y);
+    doc.setDrawColor(0);
+  };
 
   // Precarga logo una vez
   if (!window.__logoReporteInv) window.__logoReporteInv = await getLogoReady();
@@ -1040,60 +1623,71 @@ const addHeader = (firstPage = false) => {
 
   // === Columnas (ancho pensado para que Nota tenga espacio) ===
   // Suma fija: 120 + 70 + 60 + 95 + 120 = 465; resto para Nota
-  const fixedSum = 100 /*Fecha  << antes 120*/
-               + 80  /*Tipo*/
-               + 55  /*Cant. << antes 70*/
-               + 80  /*Stock << antes 100*/
-               + 120 /*Usuario (ajústalo a 110 si necesitas más aire)*/;
+  const fixedSum =
+    100 /*Fecha  << antes 120*/ +
+    80 /*Tipo*/ +
+    55 /*Cant. << antes 70*/ +
+    80 /*Stock << antes 100*/ +
+    120; /*Usuario (ajústalo a 110 si necesitas más aire)*/
 
-const fudge = 6; // pequeño margen para evitar desbordes
-const notaW = pageW - (M * 2) - fixedSum - fudge;
+  const fudge = 6; // pequeño margen para evitar desbordes
+  const notaW = pageW - M * 2 - fixedSum - fudge;
 
-const COLS = [
-  { key:'fecha',          title:'Fecha',           w:100 },
-  { key:'tipo',           title:'Tipo',            w:80  },
-  { key:'cantidad',       title:'Cant.',           w:55  },
-  { key:'stock_despues',  title:'Stock después',   w:80  },
-  { key:'usuario',        title:'Usuario',         w:120 },
-  { key:'nota',           title:'Nota',            w:notaW } // ahora más ancha
-];
+  const COLS = [
+    { key: "fecha", title: "Fecha", w: 100 },
+    { key: "tipo", title: "Tipo", w: 80 },
+    { key: "cantidad", title: "Cant.", w: 55 },
+    { key: "stock_despues", title: "Stock después", w: 80 },
+    { key: "usuario", title: "Mov. por", w: 120 },
+    { key: "nota", title: "Nota", w: notaW }, // ahora más ancha
+  ];
 
   // === Por cada producto ===
   data.resumen.forEach((p, idx) => {
     // Título de producto
     ensureSpace(30);
-    doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
     doc.text(`${p.codigo} — ${p.nombre}`, M, y + 10);
 
-    // "Stock actual" completamente a la derecha
-    doc.setFont('helvetica','normal'); doc.setFontSize(10);
-    const stockAct = (p.stock_actual ?? '—');
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(`Propietario: ${p.propietario || "—"}`, M, y + 24);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const stockAct = p.stock_actual ?? "—";
     const label = `Stock actual: ${stockAct}`;
     const labelW = doc.getTextWidth(label);
     doc.text(label, pageW - M - labelW, y + 10);
 
-    y += 16;
+    y += 30;
 
     // Encabezado de tabla
     drawTableHeader(COLS);
 
     // Filas
     p.movimientos.forEach((m, i) => {
-      drawRow(COLS, {
-        fecha: (m.fecha || ''),
-        tipo:  (m.tipo || ''),
-        cantidad: (parseFloat(m.cantidad || 0)).toFixed(2),
-        stock_despues: String(m.stock_despues ?? ''),
-        usuario: (m.usuario || '—'),
-        // Nota tal cual, con wrap interno (no se verá vertical)
-        nota: (m.nota || '')
-      }, i % 2 === 1); // zebra
+      drawRow(
+        COLS,
+        {
+          fecha: m.fecha || "",
+          tipo: m.tipo || "",
+          cantidad: parseFloat(m.cantidad || 0).toFixed(2),
+          stock_despues: String(m.stock_despues ?? ""),
+          usuario: m.usuario || "—",
+          // Nota tal cual, con wrap interno (no se verá vertical)
+          nota: m.nota || "",
+        },
+        i % 2 === 1,
+      ); // zebra
     });
 
     y += 8;
     if (idx < data.resumen.length - 1) {
       ensureSpace(14);
-      doc.setDrawColor(180); doc.setLineWidth(0.6);
+      doc.setDrawColor(180);
+      doc.setLineWidth(0.6);
       doc.line(M, y, pageW - M, y);
       doc.setDrawColor(0);
       y += 10;
@@ -1104,26 +1698,23 @@ const COLS = [
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
     doc.setTextColor(100);
     const t = `Página ${i} de ${totalPages}`;
-    doc.text(t, pageW - M - doc.getTextWidth(t), pageH - M/2);
+    doc.text(t, pageW - M - doc.getTextWidth(t), pageH - M / 2);
     doc.setTextColor(0);
   }
 
   const fileName = `reporte_inventario_${meta.desde}_a_${meta.hasta}.pdf`;
 
   try {
-    const blob = doc.output('blob');
+    const blob = doc.output("blob");
     const url = URL.createObjectURL(blob);
-    const win = window.open(url, '_blank');
-    if (!win) doc.output('dataurlnewwindow', { filename: fileName });
+    const win = window.open(url, "_blank");
+    if (!win) doc.output("dataurlnewwindow", { filename: fileName });
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch (e) {
     doc.save(fileName);
   }
 }
-
-
-
-

@@ -1,5 +1,5 @@
 <?php
-  define('BASE_URL', '/smartgate');
+  define('BASE_URL', '/smartgate-pv2');
 ?>
 
 <nav class="bg-slate-900 shadow-lg border-b border-slate-700">

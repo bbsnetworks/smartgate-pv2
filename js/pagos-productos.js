@@ -125,25 +125,178 @@ function formateaMoneda(n) {
 
 function buscarProducto(codigo) {
   ocultarSugerencias();
-  fetch(`../php/buscar_producto.php?codigo=${codigo}`)
+
+  fetch(`../php/buscar_producto.php?codigo=${encodeURIComponent(codigo)}`)
     .then((res) => res.json())
-    .then((producto) => {
-      if (!producto || !producto.id) {
+    .then((data) => {
+      if (!data || data.success === false) {
+        swalError.fire("Producto no encontrado", data?.error || "", "error");
+        return;
+      }
+
+      const productos = data.productos || [];
+
+      if (!productos.length) {
         swalError.fire("Producto no encontrado", "", "error");
         return;
       }
 
-      const existente = productosAgregados.find((p) => p.id === producto.id);
-      if (existente) {
-        existente.cantidad++;
-      } else {
-        productosAgregados.push({ ...producto, cantidad: 1 });
-      }
-      actualizarTabla();
+      mostrarSelectorInventario(productos);
     })
-    .catch(() => swalError.fire("Error al buscar producto", "", "error"));
+    .catch(() => {
+      swalError.fire("Error al buscar producto", "", "error");
+    });
 }
+function agregarProductoAlCarrito(producto) {
+  const inventarioId = parseInt(
+    producto.inventario_usuario_id || producto.id,
+    10,
+  );
 
+  if (!inventarioId) {
+    swalError.fire(
+      "Error",
+      "El producto no tiene inventario asignado.",
+      "error",
+    );
+    return;
+  }
+
+  const stock = parseInt(producto.stock || 0, 10);
+
+  if (stock <= 0) {
+    swalError.fire(
+      "Sin stock",
+      "Este inventario no tiene stock disponible.",
+      "warning",
+    );
+    return;
+  }
+
+  /*
+    Este punto es clave:
+    Se compara por inventario_usuario_id, no por producto_id.
+    Así el mismo producto de dos dueños diferentes queda separado.
+  */
+  const existente = productosAgregados.find((p) => {
+    const idActual = parseInt(p.inventario_usuario_id || p.id, 10);
+    return idActual === inventarioId;
+  });
+
+  if (existente) {
+    if (existente.cantidad + 1 > stock) {
+      swalInfo.fire(
+        "Stock insuficiente",
+        `Solo hay ${stock} piezas disponibles de este inventario.`,
+        "warning",
+      );
+      return;
+    }
+
+    existente.cantidad++;
+  } else {
+    productosAgregados.push({
+      id: inventarioId,
+      inventario_usuario_id: inventarioId,
+      producto_id: producto.producto_id,
+      usuario_propietario_id: producto.usuario_propietario_id,
+
+      codigo: producto.codigo,
+      nombre: producto.nombre,
+      descripcion: producto.descripcion || "",
+
+      propietario: producto.propietario || "—",
+      categoria: producto.categoria || "—",
+      proveedor_nombre: producto.proveedor_nombre || "—",
+
+      precio: Number(producto.precio || 0),
+      precio_proveedor: Number(producto.precio_proveedor || 0),
+      stock: stock,
+      cantidad: 1,
+    });
+  }
+
+  actualizarTabla();
+}
+function mostrarSelectorInventario(productos) {
+  const html = `
+    <div class="text-left space-y-3">
+      <p class="text-slate-300 text-sm">
+        Selecciona de qué inventario deseas vender este producto.
+      </p>
+
+      <div class="max-h-80 overflow-y-auto border border-slate-700 rounded-xl">
+        ${productos
+          .map(
+            (p, index) => `
+              <button
+                type="button"
+                class="w-full text-left px-4 py-3 hover:bg-slate-700 border-b border-slate-700 last:border-b-0"
+                onclick="seleccionarInventarioVenta(${index})"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <div class="font-semibold text-slate-100">
+                      ${p.codigo} — ${p.nombre}
+                    </div>
+
+                    <div class="text-xs text-blue-300 mt-1">
+                      Dueño:
+                      <span class="font-semibold">
+                        ${p.propietario || "—"}
+                      </span>
+                    </div>
+
+                    <div class="text-xs text-slate-400 mt-1">
+                      Stock: ${p.stock || 0}
+                      ${p.categoria ? ` · ${p.categoria}` : ""}
+                    </div>
+
+                    <div class="text-xs text-slate-500 mt-1">
+                      Proveedor: ${p.proveedor_nombre || "—"}
+                    </div>
+                  </div>
+
+                  <div class="text-right">
+                    <div class="text-xs text-slate-400">Precio</div>
+                    <div class="font-bold text-emerald-400">
+                      $${Number(p.precio || 0).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              </button>
+            `,
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+
+  window.__inventariosVentaTemp = productos;
+
+  swalcard.fire({
+    title: "Seleccionar inventario",
+    width: 680,
+    html,
+    showConfirmButton: false,
+    showCancelButton: true,
+    cancelButtonText: "Cancelar",
+    didOpen: () => {
+      Swal.getPopup().classList.add("bg-slate-800", "text-slate-100");
+    },
+  });
+}
+function seleccionarInventarioVenta(index) {
+  const producto = window.__inventariosVentaTemp?.[index];
+
+  if (!producto) {
+    swalError.fire("Error", "No se pudo seleccionar el inventario.", "error");
+    return;
+  }
+
+  Swal.close();
+  agregarProductoAlCarrito(producto);
+}
 function ocultarSugerencias() {
   if (sugerenciasDiv) {
     sugerenciasDiv.innerHTML = "";
@@ -163,12 +316,37 @@ function actualizarTabla() {
     total += parseFloat(totalFila);
 
     fila.innerHTML = `
-          <td class="border px-4 py-2">${prod.nombre}</td>
-          <td class="border px-4 py-2"><input type="number" min="1" value="${prod.cantidad}" class="w-16 bg-transparent text-center border rounded" onchange="cambiarCantidad(${i}, this.value)"></td>
-          <td class="border px-4 py-2">$${prod.precio}</td>
-          <td class="border px-4 py-2">$${totalFila}</td>
-          <td class="border px-4 py-2 text-center"><button onclick="eliminarProducto(${i})" class="text-red-600 font-bold">🗑️</button></td>
-        `;
+  <td class="border border-slate-700 px-4 py-2">
+    <div class="font-semibold">${prod.nombre}</div>
+    <div class="text-xs text-slate-400">Código: ${prod.codigo || "—"}</div>
+  </td>
+
+  <td class="border border-slate-700 px-4 py-2">
+    <span class="inline-flex items-center px-2 py-1 rounded-lg bg-slate-900/70 border border-slate-600 text-blue-300 text-sm font-semibold">
+      ${prod.propietario || "—"}
+    </span>
+  </td>
+
+  <td class="border border-slate-700 px-4 py-2">
+    <input 
+      type="number" 
+      min="1" 
+      max="${prod.stock || 999999}"
+      value="${prod.cantidad}" 
+      class="w-20 bg-slate-900 text-slate-100 text-center border border-slate-600 rounded px-2 py-1" 
+      onchange="cambiarCantidad(${i}, this.value)"
+    >
+    <div class="text-xs text-slate-400 mt-1">Stock: ${prod.stock || 0}</div>
+  </td>
+
+  <td class="border border-slate-700 px-4 py-2">$${Number(prod.precio || 0).toFixed(2)}</td>
+
+  <td class="border border-slate-700 px-4 py-2">$${totalFila}</td>
+
+  <td class="border border-slate-700 px-4 py-2 text-center">
+    <button onclick="eliminarProducto(${i})" class="text-red-500 hover:text-red-400 font-bold">🗑️</button>
+  </td>
+`;
 
     tbody.appendChild(fila);
   });
@@ -180,7 +358,23 @@ function actualizarTabla() {
 }
 
 function cambiarCantidad(index, valor) {
-  productosAgregados[index].cantidad = parseInt(valor) || 1;
+  const cantidad = parseInt(valor, 10) || 1;
+  const stock = parseInt(productosAgregados[index].stock || 0, 10);
+
+  if (cantidad <= 0) {
+    productosAgregados[index].cantidad = 1;
+  } else if (stock > 0 && cantidad > stock) {
+    productosAgregados[index].cantidad = stock;
+
+    swalInfo.fire(
+      "Stock insuficiente",
+      `Solo hay ${stock} piezas disponibles de este inventario.`,
+      "warning",
+    );
+  } else {
+    productosAgregados[index].cantidad = cantidad;
+  }
+
   actualizarTabla();
 }
 
@@ -459,11 +653,39 @@ inputCodigo.addEventListener("input", () => {
         const item = document.createElement("div");
         item.className =
           "px-4 py-3 cursor-pointer hover:bg-slate-500 border-b text-lg";
-        item.innerHTML = `<strong>${prod.codigo}</strong><br><span class="text-stone-50">${prod.nombre}</span>`;
+        item.innerHTML = `
+  <div class="flex items-start justify-between gap-3">
+    <div>
+      <strong>${prod.codigo}</strong>
+      <br>
+      <span class="text-stone-50">${prod.nombre}</span>
+
+      <div class="text-xs text-slate-400 mt-1">
+        Stock total: ${prod.stock_total || 0}
+        ${prod.categoria ? ` · ${prod.categoria}` : ""}
+      </div>
+
+      <div class="text-xs text-blue-300 mt-1">
+        Inventarios disponibles: ${prod.inventarios || 0}
+      </div>
+    </div>
+
+    <div class="text-right">
+      <div class="text-xs text-slate-400">Precio</div>
+      <div class="font-bold text-emerald-400">
+        ${
+          Number(prod.precio_min || 0) === Number(prod.precio_max || 0)
+            ? `$${Number(prod.precio_min || 0).toFixed(2)}`
+            : `$${Number(prod.precio_min || 0).toFixed(2)} - $${Number(prod.precio_max || 0).toFixed(2)}`
+        }
+      </div>
+    </div>
+  </div>
+`;
         item.onclick = () => {
           inputCodigo.value = "";
           ocultarSugerencias();
-          buscarProducto(prod.codigo);
+          buscarProductoPorId(prod.producto_id);
         };
         sugerenciasDiv.appendChild(item);
       });
@@ -483,3 +705,31 @@ inputCodigo.addEventListener("blur", () => {
     if (sugerenciasDiv) sugerenciasDiv.classList.add("hidden");
   }, 200);
 });
+function buscarProductoPorId(productoId) {
+  fetch(
+    `../php/buscar_producto.php?producto_id=${encodeURIComponent(productoId)}`,
+  )
+    .then((res) => res.json())
+    .then((data) => {
+      if (!data || data.success === false) {
+        swalError.fire("Producto no encontrado", data?.error || "", "error");
+        return;
+      }
+
+      const productos = data.productos || [];
+
+      if (!productos.length) {
+        swalError.fire(
+          "Sin inventario",
+          "Este producto no tiene inventario disponible.",
+          "warning",
+        );
+        return;
+      }
+
+      mostrarSelectorInventario(productos);
+    })
+    .catch(() => {
+      swalError.fire("Error", "No se pudo consultar el inventario.", "error");
+    });
+}

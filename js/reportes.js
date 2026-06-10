@@ -74,105 +74,124 @@ async function buscarReportes() {
     }
 
     const {
-      total_pagos,
       total_productos,
-      cantidad_pagos,
       cantidad_productos,
-      visitas_cantidad,
-      visitas_total,
+      cantidad_unidades,
       total_general,
+      productos_por_metodo,
+      caja_ingresos,
+      caja_egresos,
+      caja_neto,
+      caja_cantidad,
     } = data;
 
-    container.innerHTML += crearCard(
-      "Total en Suscripciones",
-      `$${parseFloat(total_pagos).toFixed(2)}`,
-      "bi-currency-dollar",
-      "text-blue-600",
-      "bg-sky-100",
-    );
-    container.innerHTML += crearCard(
-      "Suscripciones Registradas",
-      cantidad_pagos,
-      "bi-people-fill",
-      "text-blue-500",
-      "bg-sky-100",
-    );
+    const totalProductosNum = parseFloat(total_productos || 0);
+    const cantidadVentasNum = parseInt(cantidad_productos || 0, 10);
+    const cantidadUnidadesNum = parseInt(cantidad_unidades || 0, 10);
+
+    const metodo = productos_por_metodo || {};
+
+    const totalEfectivo = parseFloat(metodo.efectivo || 0);
+    const totalTarjeta = parseFloat(metodo.tarjeta || 0);
+    const totalTransferencia = parseFloat(metodo.transferencia || 0);
+
+    const cajaIngresos = parseFloat(caja_ingresos || 0);
+    const cajaEgresos = parseFloat(caja_egresos || 0);
+    const cajaNeto = parseFloat(caja_neto || 0);
+    const cajaCantidad = parseInt(caja_cantidad || 0, 10);
+
+    const ticketPromedio =
+      cantidadVentasNum > 0 ? totalProductosNum / cantidadVentasNum : 0;
+
+    const efectivoEsperado = totalEfectivo + cajaIngresos - cajaEgresos;
 
     container.innerHTML += crearCard(
-      "Total en Productos Vendidos",
-      `$${parseFloat(total_productos).toFixed(2)}`,
+      "Total vendido",
+      `$${totalProductosNum.toFixed(2)}`,
       "bi-cart-check",
-      "text-green-600",
-      "bg-stone-200",
-    );
-    container.innerHTML += crearCard(
-      "Ventas Registradas",
-      cantidad_productos,
-      "bi-boxes",
-      "text-green-500",
-      "bg-stone-200",
-    );
-    // ✅ VISITAS (separadas, no mezcladas con productos)
-    container.innerHTML += crearCard(
-      "Visitas Registradas",
-      parseInt(visitas_cantidad || 0, 10),
-      "bi-person-walking",
-      "text-purple-600",
-      "bg-purple-100",
+      "text-emerald-300",
     );
 
     container.innerHTML += crearCard(
-      "Total en Visitas",
-      `$${parseFloat(visitas_total || 0).toFixed(2)}`,
-      "bi-ticket-perforated",
-      "text-purple-500",
-      "bg-purple-100",
+      "Ventas registradas",
+      cantidadVentasNum,
+      "bi-receipt",
+      "text-sky-300",
     );
+
     container.innerHTML += crearCard(
-      "Total General",
-      `$${parseFloat(total_general).toFixed(2)}`,
+      "Unidades vendidas",
+      cantidadUnidadesNum,
+      "bi-box-seam",
+      "text-indigo-300",
+    );
+
+    container.innerHTML += crearCard(
+      "Ticket promedio",
+      `$${ticketPromedio.toFixed(2)}`,
+      "bi-graph-up-arrow",
+      "text-amber-300",
+    );
+
+    container.innerHTML += crearCard(
+      "Efectivo",
+      `$${totalEfectivo.toFixed(2)}`,
+      "bi-cash-coin",
+      "text-emerald-300",
+    );
+
+    container.innerHTML += crearCard(
+      "Tarjeta",
+      `$${totalTarjeta.toFixed(2)}`,
+      "bi-credit-card",
+      "text-blue-300",
+    );
+
+    container.innerHTML += crearCard(
+      "Transferencia",
+      `$${totalTransferencia.toFixed(2)}`,
+      "bi-bank",
+      "text-purple-300",
+    );
+
+    container.innerHTML += crearCard(
+      "Total general",
+      `$${parseFloat(total_general || total_productos || 0).toFixed(2)}`,
       "bi-coin",
-      "text-indigo-600",
-      "bg-green-200",
+      "text-yellow-300",
     );
 
-    // ===== Movimientos de caja (desde DETALLE) =====
+    container.innerHTML += crearCard(
+      "Efectivo esperado",
+      `
+    <div class="text-2xl font-extrabold text-white">
+      $${efectivoEsperado.toFixed(2)}
+    </div>
+    <div class="text-xs text-slate-400 mt-2 leading-relaxed">
+      Efectivo: $${totalEfectivo.toFixed(2)} ·
+      Ingresos: $${cajaIngresos.toFixed(2)} ·
+      Egresos: $${cajaEgresos.toFixed(2)}
+    </div>
+  `,
+      "bi-wallet2",
+      "text-lime-300",
+    );
+
     if (tipo === "dia" && String(usuario) !== "todos") {
-      // ===== Movimientos de caja (desde DETALLE) =====
-      let cajaIngresos = 0,
-        cajaEgresos = 0,
-        cajaCantidad = 0;
-
-      try {
-        const detRes = await fetch(
-          `../php/obtener_reportes_detalle.php?${params.toString()}`,
-        );
-        const det = await detRes.json();
-
-        if (det.success) {
-          cajaIngresos = parseFloat(det.caja_ingresos || 0);
-          cajaEgresos = parseFloat(det.caja_egresos || 0);
-          cajaCantidad = (det.movimientos_caja || []).length;
-        }
-      } catch (e) {
-        console.warn("No se pudo cargar movimientos de caja", e);
-      }
-
-      const netoCaja = (cajaIngresos || 0) - (cajaEgresos || 0);
-
       container.innerHTML += crearCard(
         "Movimientos de caja",
-        `<div class="text-xl font-bold text-gray-800">$${netoCaja.toFixed(
-          2,
-        )}</div>
-     <div class="text-sm text-gray-600 mt-1">
-       Ingresos: $${(cajaIngresos || 0).toFixed(2)} ·
-       Egresos: $${(cajaEgresos || 0).toFixed(2)} ·
-       Movs: ${parseInt(cajaCantidad || 0, 10)}
-     </div>`,
+        `
+      <div class="text-2xl font-extrabold text-white">
+        $${cajaNeto.toFixed(2)}
+      </div>
+      <div class="text-xs text-slate-400 mt-2 leading-relaxed">
+        Ingresos: $${cajaIngresos.toFixed(2)} ·
+        Egresos: $${cajaEgresos.toFixed(2)} ·
+        Movs: ${cajaCantidad}
+      </div>
+    `,
         "bi-arrow-left-right",
-        "text-amber-600",
-        "bg-amber-100",
+        "text-orange-300",
       );
     }
 
@@ -188,12 +207,26 @@ async function buscarReportes() {
   }
 }
 
-function crearCard(titulo, valor, icono, iconColor, bgColor) {
+function crearCard(
+  titulo,
+  valor,
+  icono,
+  iconColor = "text-indigo-300",
+  bgColor = "",
+) {
   return `
-    <div class="${bgColor} rounded-xl shadow p-6 text-center">
-      <i class="bi ${icono} text-4xl ${iconColor} mb-3"></i>
-      <h2 class="text-lg font-semibold text-gray-700">${titulo}</h2>
-      <div class="mt-2 text-gray-800 font-bold">${valor}</div>
+    <div class="rounded-2xl border border-slate-700 bg-slate-900/60 shadow p-6 text-center">
+      <div class="mx-auto mb-4 h-14 w-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center">
+        <i class="bi ${icono} text-3xl ${iconColor}"></i>
+      </div>
+
+      <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wide">
+        ${titulo}
+      </h2>
+
+      <div class="mt-3 text-2xl font-extrabold text-white">
+        ${valor}
+      </div>
     </div>
   `;
 }
@@ -221,16 +254,17 @@ function mostrarFiltros() {
 function agregarBotonesAccionReporte() {
   const container = document.getElementById("reporteContainer");
 
-  // Evita duplicados si ya existen
   const existente = document.getElementById("accionesReporteWrap");
   if (existente) existente.remove();
 
+  const esAdmin = window.tipoUsuario === "admin";
+
   const wrap = document.createElement("div");
   wrap.id = "accionesReporteWrap";
-  wrap.className =
-    "col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6";
+  wrap.className = esAdmin
+    ? "col-span-1 sm:col-span-2 xl:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-5"
+    : "col-span-1 sm:col-span-2 xl:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-5";
 
-  // Card PDF
   const cardPDF = document.createElement("div");
   cardPDF.className =
     "rounded-xl shadow text-2xl text-center flex items-center justify-center overflow-hidden bg-white";
@@ -243,8 +277,24 @@ function agregarBotonesAccionReporte() {
   btnPDF.onclick = generarPDFReporte;
 
   cardPDF.appendChild(btnPDF);
+  wrap.appendChild(cardPDF);
 
-  // Card Correo
+  if (esAdmin) {
+    const cardPropietario = document.createElement("div");
+    cardPropietario.className =
+      "rounded-xl shadow text-2xl text-center flex items-center justify-center overflow-hidden bg-white";
+
+    const btnPropietario = document.createElement("button");
+    btnPropietario.type = "button";
+    btnPropietario.textContent = "📦 Mis productos vendidos";
+    btnPropietario.className =
+      "bg-orange-600 h-full w-full hover:bg-orange-700 text-white px-6 py-5 rounded-xl font-semibold shadow transition";
+    btnPropietario.onclick = generarPDFMisProductosVendidos;
+
+    cardPropietario.appendChild(btnPropietario);
+    wrap.appendChild(cardPropietario);
+  }
+
   const cardCorreo = document.createElement("div");
   cardCorreo.className =
     "rounded-xl shadow text-2xl text-center flex items-center justify-center overflow-hidden bg-white";
@@ -254,11 +304,9 @@ function agregarBotonesAccionReporte() {
   btnCorreo.textContent = "✉️ Enviar por correo";
   btnCorreo.className =
     "bg-blue-600 h-full w-full hover:bg-blue-700 text-white px-6 py-5 rounded-xl font-semibold shadow transition";
-  btnCorreo.onclick = abrirModalCorreoReporte; // por ahora solo placeholder
+  btnCorreo.onclick = abrirModalCorreoReporte;
 
   cardCorreo.appendChild(btnCorreo);
-
-  wrap.appendChild(cardPDF);
   wrap.appendChild(cardCorreo);
 
   container.appendChild(wrap);
@@ -312,14 +360,7 @@ async function construirPDFReporte() {
 
   let y = 15;
 
-  let totalSuscripciones = 0;
   let totalVentas = 0;
-
-  const totalSuscripcionesPorMetodo = {
-    efectivo: 0,
-    tarjeta: 0,
-    transferencia: 0,
-  };
 
   // =========================
   // 3) Paleta + utilidades
@@ -401,7 +442,7 @@ async function construirPDFReporte() {
     doc.setFontSize(16);
     doc.setTextColor(33, 37, 41);
     doc.setFont("helvetica", "bold");
-    doc.text("REPORTE DE VENTAS Y COBROS", 10, y);
+    doc.text("REPORTE DE VENTAS POS", 10, y);
     y += 10;
 
     doc.setFontSize(13);
@@ -454,60 +495,7 @@ async function construirPDFReporte() {
   };
 
   // =========================
-  // 5) Desglose SUSCRIPCIONES
-  // =========================
-  const renderPagos = (titulo, pagos, metodo) => {
-    if (!pagos || pagos.length === 0) return;
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.setTextColor(0, 102, 204);
-    doc.text(titulo, 10, y);
-    y += 8;
-
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(0);
-
-    pagos.forEach((p) => {
-      const fechaFormat = formatearFechaLarga(p.fecha);
-      const cliente = p.nombre || "Cliente eliminado";
-
-      const descuento = parseFloat(p.descuento || 0);
-      const montoOriginal = parseFloat(p.monto || 0);
-      const montoFinal = montoOriginal - descuento;
-
-      const texto = `• ${cliente} el ${fechaFormat}${
-        descuento > 0 ? ` (-$${descuento.toFixed(2)} descuento)` : ""
-      }`;
-      const montoTexto = `$${montoFinal.toFixed(2)}`;
-
-      const maxTextWidth = 190 - 12 - doc.getTextWidth(montoTexto) - 4;
-      const textoDividido = doc.splitTextToSize(texto, maxTextWidth);
-
-      doc.text(textoDividido, 12, y);
-      doc.text(montoTexto, 190 - doc.getTextWidth(montoTexto), y);
-
-      y += textoDividido.length * 5.5;
-
-      totalSuscripciones += montoFinal;
-      totalSuscripcionesPorMetodo[metodo] += montoFinal;
-
-      doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(0.3);
-      doc.line(10, y, 200, y);
-      y += 6;
-
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-      }
-    });
-
-    y += 4;
-  };
-
-  // =========================
-  // 6) Desglose PRODUCTOS
+  // 5) Desglose PRODUCTOS
   // =========================
   const renderVentas = (titulo, ventas) => {
     if (!ventas || ventas.length === 0) return;
@@ -537,10 +525,24 @@ async function construirPDFReporte() {
         totalVenta += subtotal;
         totalVentas += subtotal;
 
+        const propietario = p.propietario || "Sin propietario";
+        const precioUnitario = Number(p.precio_unitario || 0);
+
         const textoProducto = `   - ${p.nombre} x${p.cantidad}`;
         const textoMonto = `$${subtotal.toFixed(2)}`;
+
         doc.text(textoProducto, 15, y);
         doc.text(textoMonto, 190 - doc.getTextWidth(textoMonto), y);
+        y += 5;
+
+        doc.setFontSize(8);
+        doc.setTextColor(90, 90, 90);
+
+        const detalleDueno = `     Dueño: ${propietario} · P. unitario: $${precioUnitario.toFixed(2)}`;
+        doc.text(detalleDueno, 18, y);
+
+        doc.setFontSize(10);
+        doc.setTextColor(0);
         y += 5;
 
         if (y > 270) {
@@ -551,7 +553,8 @@ async function construirPDFReporte() {
 
       doc.setFont("helvetica", "italic");
       doc.setTextColor(0, 178, 92);
-      const textoTotal = `Total de esta venta: $${totalVenta.toFixed(2)}`;
+      const totalVentaFinal = Number(v.total_venta || totalVenta || 0);
+      const textoTotal = `Total de esta venta: $${totalVentaFinal.toFixed(2)}`;
       doc.text(textoTotal, 190 - doc.getTextWidth(textoTotal), y);
       y += 8;
 
@@ -574,194 +577,112 @@ async function construirPDFReporte() {
   // 7) Resumen de Totales
   // =========================
   const renderTotales = () => {
-    const totalVentasPorMetodo = { efectivo: 0, tarjeta: 0, transferencia: 0 };
+    const totalVentasPorMetodo = data.productos_por_metodo || {};
 
-    (data.ventas || []).forEach((v) => {
-      const m = (v.metodo_pago || "").toLowerCase();
-      if (totalVentasPorMetodo[m] == null) totalVentasPorMetodo[m] = 0;
-      (v.productos || []).forEach((p) => {
-        totalVentasPorMetodo[m] += parseFloat(p.total || 0);
-      });
-    });
+    const ventaEfectivo = Number(totalVentasPorMetodo.efectivo || 0);
+    const ventaTarjeta = Number(totalVentasPorMetodo.tarjeta || 0);
+    const ventaTransferencia = Number(totalVentasPorMetodo.transferencia || 0);
 
-    const ventaEfectivo = totalVentasPorMetodo.efectivo || 0;
-    const ventaTarjeta = totalVentasPorMetodo.tarjeta || 0;
-    const ventaTransferencia = totalVentasPorMetodo.transferencia || 0;
+    const totalVentasCalc =
+      Number(data.total_productos || 0) ||
+      ventaEfectivo + ventaTarjeta + ventaTransferencia;
 
-    const totalVentasCalc = ventaEfectivo + ventaTarjeta + ventaTransferencia;
+    y = ensureSpace(doc, y, 80);
 
-    y = ensureSpace(doc, y, 64);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
     doc.setTextColor(...PALETTE.title);
     doc.text("Resumen de Totales", 10, y);
-    y += 6;
+    y += 8;
 
-    const gap = 6;
-    const cardW = (200 - 10 - gap) / 2;
-    const leftX = 10;
-    const rightX = leftX + cardW + gap;
-    const cardH = 56;
-
-    y = ensureSpace(doc, y, cardH + 12);
-    doc.setDrawColor(...PALETTE.stroke);
-    doc.setFillColor(...PALETTE.box);
-    doc.roundedRect(leftX, y, cardW, cardH, 3, 3, "FD");
-
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...PALETTE.sub2);
-    doc.text("MENSUALIDADES", leftX + 6, y + 8);
-
-    let yC = y + 16;
-    const leftRight = leftX + cardW - 6;
-
-    yC = lineAmount(
-      doc,
-      leftX + 6,
-      yC,
-      "Efectivo",
-      totalSuscripcionesPorMetodo.efectivo || 0,
-      leftRight,
-    );
-    yC = lineAmount(
-      doc,
-      leftX + 6,
-      yC,
-      "Tarjeta",
-      totalSuscripcionesPorMetodo.tarjeta || 0,
-      leftRight,
-    );
-    yC = lineAmount(
-      doc,
-      leftX + 6,
-      yC,
-      "Transferencia",
-      totalSuscripcionesPorMetodo.transferencia || 0,
-      leftRight,
-    );
-
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...PALETTE.ok);
-    doc.setFontSize(11);
-    doc.text(
-      `TOTAL: ${fmtMoney(totalSuscripciones)}`,
-      leftX + 6,
-      y + cardH - 6,
-    );
+    const boxX = 10;
+    const boxW = 190;
+    const boxH = 52;
 
     doc.setDrawColor(...PALETTE.stroke);
     doc.setFillColor(...PALETTE.box);
-    doc.roundedRect(rightX, y, cardW, cardH, 3, 3, "FD");
+    doc.roundedRect(boxX, y, boxW, boxH, 3, 3, "FD");
 
-    doc.setFontSize(10);
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...PALETTE.sub);
-    doc.text("VENTAS DE PRODUCTOS", rightX + 6, y + 8);
+    doc.text("VENTAS DE PRODUCTOS", boxX + 6, y + 9);
 
-    let yR = y + 16;
-    const rightRight = rightX + cardW - 6;
+    let yR = y + 18;
+    const rightBound = boxX + boxW - 8;
 
-    yR = lineAmount(doc, rightX + 6, yR, "Efectivo", ventaEfectivo, rightRight);
-    yR = lineAmount(doc, rightX + 6, yR, "Tarjeta", ventaTarjeta, rightRight);
+    yR = lineAmount(doc, boxX + 8, yR, "Efectivo", ventaEfectivo, rightBound);
+    yR = lineAmount(doc, boxX + 8, yR, "Tarjeta", ventaTarjeta, rightBound);
     yR = lineAmount(
       doc,
-      rightX + 6,
+      boxX + 8,
       yR,
       "Transferencia",
       ventaTransferencia,
-      rightRight,
+      rightBound,
     );
 
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...PALETTE.ok);
     doc.setFontSize(11);
-    doc.text(`TOTAL: ${fmtMoney(totalVentasCalc)}`, rightX + 6, y + cardH - 6);
 
-    y += cardH + 10;
+    const totalVentasTxt = `TOTAL VENTAS: ${fmtMoney(totalVentasCalc)}`;
+    doc.text(totalVentasTxt, boxX + 8, y + boxH - 6);
 
-    const visitasTotal = Number(data.visitas_total || 0);
-    const visitasCantidad = Number(data.visitas_cantidad || 0);
-    const visitasMetodo = data.visitas_por_metodo || {};
-
-    const vEfe = Number(visitasMetodo.efectivo || 0);
-    const vTar = Number(visitasMetodo.tarjeta || 0);
-    const vTra = Number(visitasMetodo.transferencia || 0);
-
-    const boxXv = 10,
-      boxWv = 190,
-      boxHv = 34;
-    y = ensureSpace(doc, y, boxHv + 10);
-
-    doc.setDrawColor(...PALETTE.stroke);
-    doc.setFillColor(250, 245, 255);
-    doc.roundedRect(boxXv, y, boxWv, boxHv, 3, 3, "FD");
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(124, 58, 237);
-    doc.text("VISITAS (código 1)", boxXv + 6, y + 9);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.setTextColor(...PALETTE.title);
-    doc.text(String(visitasCantidad), boxXv + 6, y + 22);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.setTextColor(...PALETTE.ok);
-    const totalTxt = fmtMoney(visitasTotal);
-    doc.text(totalTxt, boxXv + boxWv - 6 - doc.getTextWidth(totalTxt), y + 22);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(...PALETTE.mute);
-    const mini = `Efe: ${fmtMoney(vEfe)}  ·  Tar: ${fmtMoney(vTar)}  ·  Trans: ${fmtMoney(vTra)}`;
-    doc.text(mini, boxXv + 6, y + 31);
-
-    y += boxHv + 10;
+    y += boxH + 10;
 
     if (tipo === "dia" && String(usuarioId) !== "todos") {
-      const efectivoEsperado =
-        (totalSuscripcionesPorMetodo.efectivo || 0) + (ventaEfectivo || 0);
-      const netoMovs = parseFloat(data.caja_neto || 0);
+      const netoMovs = Number(data.caja_neto || 0);
+      const cajaIngresos = Number(data.caja_ingresos || 0);
+      const cajaEgresos = Number(data.caja_egresos || 0);
       const dejado = Number(document.getElementById("monto_caja")?.value || 0);
+
+      const efectivoEsperado = ventaEfectivo;
       const totalEntregar = efectivoEsperado + netoMovs + dejado;
 
-      const boxX = 10,
-        boxW = 190,
-        boxH = 56;
-      y = ensureSpace(doc, y, boxH + 10);
+      const boxCajaH = 68;
+
+      y = ensureSpace(doc, y, boxCajaH + 10);
 
       doc.setDrawColor(...PALETTE.stroke);
       doc.setFillColor(245, 249, 255);
-      doc.roundedRect(boxX, y, boxW, boxH, 3, 3, "FD");
+      doc.roundedRect(boxX, y, boxW, boxCajaH, 3, 3, "FD");
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
       doc.setTextColor(...PALETTE.title);
-      doc.text("Caja del día (solo efectivo)", boxX + 6, y + 10);
+      doc.text("Caja del día", boxX + 6, y + 10);
 
       let yK = y + 20;
-      const rb = boxX + boxW - 8;
 
       yK = lineAmount(
         doc,
         boxX + 8,
         yK,
-        "Total General efectivo",
+        "Ventas en efectivo",
         efectivoEsperado,
-        rb,
+        rightBound,
       );
+
       yK = lineAmount(
         doc,
         boxX + 8,
         yK,
-        "Movimientos (ingresos - egresos)",
-        netoMovs,
-        rb,
+        "Ingresos manuales",
+        cajaIngresos,
+        rightBound,
       );
-      yK = lineAmount(doc, boxX + 8, yK, "Caja", dejado, rb);
+
+      yK = lineAmount(
+        doc,
+        boxX + 8,
+        yK,
+        "Egresos manuales",
+        cajaEgresos * -1,
+        rightBound,
+      );
+
+      yK = lineAmount(doc, boxX + 8, yK, "Caja dejada", dejado, rightBound);
 
       doc.setDrawColor(...PALETTE.stroke);
       doc.setLineWidth(0.3);
@@ -770,15 +691,18 @@ async function construirPDFReporte() {
 
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...PALETTE.ok);
+
       const label = "TOTAL A ENTREGAR";
       const amount = fmtMoney(totalEntregar);
+
       doc.text(label, boxX + 8, yK);
       doc.text(amount, boxX + boxW - 8 - doc.getTextWidth(amount), yK);
 
-      y += boxH + 10;
+      y += boxCajaH + 10;
     }
 
     y = ensureSpace(doc, y, 18);
+
     doc.setFillColor(...PALETTE.bandBg);
     doc.rect(10, y, 190, 14, "F");
 
@@ -786,24 +710,16 @@ async function construirPDFReporte() {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
 
-    let totalGeneral =
-      totalVentasCalc + totalSuscripciones + Number(data.visitas_total || 0);
+    doc.text("TOTAL GENERAL DE VENTAS", 14, y + 10);
 
-    if (tipo === "dia" && String(usuarioId) !== "todos") {
-      const netoMovs = parseFloat(data.caja_neto || 0);
-      const dejado = Number(document.getElementById("monto_caja")?.value || 0);
-      totalGeneral += (netoMovs || 0) + (dejado || 0);
-    }
-
-    doc.text("TOTAL GENERAL", 14, y + 10);
-
-    const amount = fmtMoney(totalGeneral);
+    const amount = fmtMoney(totalVentasCalc);
     doc.text(amount, 10 + 190 - 6 - doc.getTextWidth(amount), y + 10);
 
     y += 22;
 
     const nota =
       "Nota: Los usuarios o productos eliminados aparecen como 'eliminado' porque ya no existen en la base de datos.";
+
     const lines = doc.splitTextToSize(nota, 188);
 
     doc.setFont("helvetica", "italic");
@@ -889,22 +805,6 @@ async function construirPDFReporte() {
   // 9) Ejecución final
   // =========================
   renderEncabezado();
-
-  const pagos = {
-    efectivo: (data.pagos || []).filter(
-      (p) => (p.metodo || "").toLowerCase() === "efectivo",
-    ),
-    tarjeta: (data.pagos || []).filter(
-      (p) => (p.metodo || "").toLowerCase() === "tarjeta",
-    ),
-    transferencia: (data.pagos || []).filter(
-      (p) => (p.metodo || "").toLowerCase() === "transferencia",
-    ),
-  };
-
-  renderPagos("Pagos por Efectivo:", pagos.efectivo, "efectivo");
-  renderPagos("Pagos por Tarjeta:", pagos.tarjeta, "tarjeta");
-  renderPagos("Pagos por Transferencia:", pagos.transferencia, "transferencia");
 
   const ventas = {
     efectivo: (data.ventas || []).filter(
@@ -1413,4 +1313,186 @@ async function abrirModalCorreoReporte() {
       "error",
     );
   }
+}
+function obtenerFiltrosReporteActual() {
+  const tipo = document.getElementById("tipoPeriodo").value;
+
+  let fecha = "";
+  let inicio = "";
+  let fin = "";
+
+  if (tipo === "dia") {
+    fecha = document.getElementById("fecha_dia").value;
+  } else if (tipo === "mes") {
+    fecha = document.getElementById("fecha_mes").value;
+  } else if (tipo === "anio") {
+    fecha = document.getElementById("fecha_anio").value;
+  } else if (tipo === "rango") {
+    inicio = document.getElementById("rango_inicio").value;
+    fin = document.getElementById("rango_fin").value;
+  }
+
+  return { tipo, fecha, inicio, fin };
+}
+
+async function generarPDFMisProductosVendidos() {
+  try {
+    if (window.tipoUsuario !== "admin") {
+      swalError.fire(
+        "No permitido",
+        "Este reporte solo está disponible para usuarios admin.",
+        "warning",
+      );
+      return;
+    }
+
+    const filtros = obtenerFiltrosReporteActual();
+
+    const params = new URLSearchParams({
+      tipo: filtros.tipo,
+      fecha: filtros.fecha,
+      inicio: filtros.inicio,
+      fin: filtros.fin,
+    });
+
+    const res = await fetch(
+      `../php/obtener_reporte_propietario.php?${params.toString()}`,
+    );
+
+    const data = await res.json();
+
+    if (!data.success) {
+      throw new Error(data.error || "No se pudo generar el reporte.");
+    }
+
+    const doc = await construirPDFMisProductosVendidos(data);
+    window.open(doc.output("bloburl"), "_blank");
+  } catch (error) {
+    console.error(error);
+    swalError.fire(
+      "Error",
+      error.message || "No se pudo generar el reporte.",
+      "error",
+    );
+  }
+}
+
+async function construirPDFMisProductosVendidos(data) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  const logo = await obtenerLogoDesdeDB();
+
+  const fmtMoney = (n) => `$${Number(n || 0).toFixed(2)}`;
+
+  let y = 15;
+
+  function ensureSpace(need = 20) {
+    if (y + need > 280) {
+      doc.addPage();
+      y = 20;
+    }
+  }
+
+  doc.addImage(logo, "PNG", 160, y - 5, 35, 35);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.setTextColor(33, 37, 41);
+  doc.text("REPORTE DE MIS PRODUCTOS VENDIDOS", 10, y);
+  y += 10;
+
+  doc.setFontSize(11);
+  doc.text(
+    `Propietario: ${data.propietario || window.usuarioActualNombre || "Admin"}`,
+    10,
+    y,
+  );
+  y += 7;
+
+  const rango = data.rango || {};
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(80, 80, 80);
+  doc.text(`Periodo: ${rango.inicio || ""} al ${rango.fin || ""}`, 10, y);
+  y += 10;
+
+  const totales = data.totales || {};
+
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(10, y, 190, 28, 3, 3, "FD");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(31, 41, 55);
+
+  doc.text(`Cantidad: ${totales.cantidad || 0}`, 14, y + 8);
+  doc.text(`Total vendido: ${fmtMoney(totales.total_vendido)}`, 14, y + 16);
+  doc.text(`Ganancia: ${fmtMoney(totales.ganancia_total)}`, 110, y + 16);
+
+  y += 38;
+
+  if (!data.productos || data.productos.length === 0) {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(11);
+    doc.setTextColor(100, 100, 100);
+    doc.text(
+      "No se encontraron ventas de tus productos en este periodo.",
+      10,
+      y,
+    );
+    return doc;
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(0, 102, 204);
+  doc.text("Detalle por producto", 10, y);
+  y += 8;
+
+  data.productos.forEach((p) => {
+    ensureSpace(22);
+
+    const nombre = `${p.codigo ? p.codigo + " - " : ""}${p.producto}`;
+    const nombreCorto =
+      nombre.length > 42 ? nombre.slice(0, 42) + "..." : nombre;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(0);
+    doc.text(nombreCorto, 12, y);
+    y += 5;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(70, 70, 70);
+
+    doc.text(`Cantidad: ${p.cantidad}`, 16, y);
+    doc.text(`Ventas: ${p.ventas}`, 55, y);
+    doc.text(`Total: ${fmtMoney(p.total_vendido)}`, 88, y);
+    doc.text(`Ganancia: ${fmtMoney(p.ganancia_total)}`, 145, y);
+    y += 6;
+
+    doc.setDrawColor(220, 220, 220);
+    doc.line(10, y, 200, y);
+    y += 5;
+  });
+
+  y += 4;
+  ensureSpace(20);
+
+  doc.setFillColor(15, 23, 42);
+  doc.rect(10, y, 190, 15, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+
+  doc.text("TOTAL GANANCIA", 14, y + 10);
+
+  const ganancia = fmtMoney(totales.ganancia_total);
+  doc.text(ganancia, 200 - 6 - doc.getTextWidth(ganancia), y + 10);
+
+  return doc;
 }

@@ -38,8 +38,10 @@ endif;
   <script src="../js/lucide.min.js"></script>
   <script src="../js/jspdf.umd.min.js"></script>
   <script>
-    window.tipoUsuario = "<?php echo $_SESSION['usuario']['rol'] ?? ''; ?>";
-  </script>
+  window.tipoUsuario = "<?php echo $_SESSION['usuario']['rol'] ?? ''; ?>";
+  window.usuarioActualId = "<?php echo $_SESSION['usuario']['id'] ?? ''; ?>";
+  window.usuarioActualNombre = "<?php echo htmlspecialchars($_SESSION['usuario']['nombre'] ?? '', ENT_QUOTES, 'UTF-8'); ?>";
+</script>
   <style>
     /* Ajustes para formularios dentro de SweetAlert2 */
     .swal-form .swal2-input,
@@ -107,17 +109,19 @@ endif;
 <div class="overflow-x-auto max-w-6xl mx-auto mt-4">
   <table class="min-w-full table-fixed bg-slate-800 text-slate-100 rounded-xl overflow-hidden shadow-xl">
     <thead class="bg-slate-700 text-slate-200 text-left">
-      <tr class="text-slate-300 text-sm uppercase">
-        <th class="p-3 w-40">Código</th>
-        <th class="p-3 w-56">Nombre</th>
-        <th class="p-3 w-28 text-right">Venta</th>
-        <th class="p-3 w-28 text-right">Costo Prov.</th>
-        <th class="p-3 w-44">Proveedor</th>
-        <th class="p-3 w-20 text-right">Stock</th>
-        <th class="p-3 w-40">Categoría</th>
-        <th class="p-3 w-40 text-center">Acciones</th>
-      </tr>
-    </thead>
+  <tr class="text-slate-300 text-sm uppercase">
+    <th class="p-3 w-36">Código</th>
+    <th class="p-3 w-52">Nombre</th>
+    <th class="p-3 w-40">Dueño</th>
+    <th class="p-3 w-28 text-right">Venta</th>
+    <th class="p-3 w-28 text-right">Costo</th>
+    <th class="p-3 w-28 text-right">Ganancia</th>
+    <th class="p-3 w-40">Proveedor</th>
+    <th class="p-3 w-20 text-right">Stock</th>
+    <th class="p-3 w-36">Categoría</th>
+    <th class="p-3 w-40 text-center">Acciones</th>
+  </tr>
+</thead>
     <tbody id="tabla-productos" class="text-slate-100 divide-y divide-slate-700">
       <!-- JS llenará esta parte -->
     </tbody>
