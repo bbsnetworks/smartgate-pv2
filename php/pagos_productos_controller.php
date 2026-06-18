@@ -42,21 +42,25 @@ function obtenerPagos($conexion) {
         $like = "%{$search}%";
 
         $where .= " AND (
-            p.venta_id LIKE ?
-            OR IFNULL(vendedor.nombre, 'Usuario Eliminado') LIKE ?
-            OR IFNULL(prod.nombre, 'Producto eliminado') LIKE ?
-            OR IFNULL(prod.codigo, '') LIKE ?
-            OR IFNULL(propietario.nombre, 'Sin propietario') LIKE ?
-            OR IFNULL(p.metodo_pago, '') LIKE ?
-        )";
+    p.venta_id LIKE ?
+    OR IFNULL(vendedor.nombre, 'Usuario Eliminado') LIKE ?
+    OR IFNULL(prod.marca, '') LIKE ?
+    OR IFNULL(prod.modelo, '') LIKE ?
+    OR TRIM(CONCAT_WS(' ', prod.marca, prod.modelo)) LIKE ?
+    OR IFNULL(prod.codigo, '') LIKE ?
+    OR IFNULL(propietario.nombre, 'Sin propietario') LIKE ?
+    OR IFNULL(p.metodo_pago, '') LIKE ?
+)";
 
-        $params[] = $like;
-        $params[] = $like;
-        $params[] = $like;
-        $params[] = $like;
-        $params[] = $like;
-        $params[] = $like;
-        $types .= "ssssss";
+$params[] = $like; // venta_id
+$params[] = $like; // vendedor
+$params[] = $like; // marca
+$params[] = $like; // modelo
+$params[] = $like; // marca + modelo
+$params[] = $like; // codigo
+$params[] = $like; // propietario
+$params[] = $like; // metodo_pago
+$types .= "ssssssss";
     }
 
     /*
@@ -155,7 +159,12 @@ function obtenerPagos($conexion) {
             IFNULL(vendedor.nombre, 'Usuario Eliminado') AS usuario,
 
             IFNULL(prod.codigo, '') AS producto_codigo,
-            IFNULL(prod.nombre, 'Producto eliminado') AS producto_nombre,
+            IFNULL(prod.marca, '') AS producto_marca,
+            IFNULL(prod.modelo, '') AS producto_modelo,
+            COALESCE(
+                NULLIF(TRIM(CONCAT_WS(' ', prod.marca, prod.modelo)), ''),
+                'Producto eliminado'
+            ) AS producto_nombre,
 
             IFNULL(propietario.nombre, 'Sin propietario') AS propietario
 
@@ -197,21 +206,23 @@ function obtenerPagos($conexion) {
         }
 
         $ventas[$venta_id]['productos'][] = [
-            "id" => (int)$row['id'],
-            "producto_id" => (int)$row['producto_id'],
-            "inventario_usuario_id" => (int)$row['inventario_usuario_id'],
-            "usuario_propietario_id" => (int)$row['usuario_propietario_id'],
+    "id" => (int)$row['id'],
+    "producto_id" => (int)$row['producto_id'],
+    "inventario_usuario_id" => (int)$row['inventario_usuario_id'],
+    "usuario_propietario_id" => (int)$row['usuario_propietario_id'],
 
-            "codigo" => $row['producto_codigo'],
-            "nombre" => $row['producto_nombre'],
-            "propietario" => $row['propietario'],
+    "codigo" => $row['producto_codigo'],
+    "marca" => $row['producto_marca'] ?? "",
+    "modelo" => $row['producto_modelo'] ?? "",
+    "nombre" => $row['producto_nombre'],
+    "propietario" => $row['propietario'],
 
-            "cantidad" => (int)$row['cantidad'],
-            "precio_unitario" => (float)$row['precio_unitario'],
-            "costo_unitario" => (float)$row['costo_unitario'],
-            "total" => (float)$row['total'],
-            "utilidad_total" => (float)$row['utilidad_total']
-        ];
+    "cantidad" => (int)$row['cantidad'],
+    "precio_unitario" => (float)$row['precio_unitario'],
+    "costo_unitario" => (float)$row['costo_unitario'],
+    "total" => (float)$row['total'],
+    "utilidad_total" => (float)$row['utilidad_total']
+];
 
         $ventas[$venta_id]['total'] += (float)$row['total'];
     }
@@ -268,7 +279,10 @@ function eliminarPago($conexion) {
                 pp.costo_unitario,
 
                 IFNULL(prod.codigo, '') AS producto_codigo,
-                IFNULL(prod.nombre, 'Producto eliminado') AS producto_nombre,
+                COALESCE(
+                    NULLIF(TRIM(CONCAT_WS(' ', prod.marca, prod.modelo)), ''),
+                    'Producto eliminado'
+                ) AS producto_nombre,
 
                 iu.stock AS stock_actual
 

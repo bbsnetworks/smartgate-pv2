@@ -78,7 +78,9 @@ try {
               iu.precio_venta,
               iu.precio_proveedor,
               p.codigo,
-              p.nombre,
+              p.marca,
+              p.modelo,
+              TRIM(CONCAT_WS(' ', p.marca, p.modelo)) AS nombre,
               p.descripcion,
               propietario.nombre AS propietario
             FROM inventario_usuarios iu
@@ -91,6 +93,11 @@ try {
             FOR UPDATE";
 
     $stmt = $conexion->prepare($sql);
+
+    if (!$stmt) {
+      throw new Exception("Error al preparar consulta de inventario: " . $conexion->error);
+    }
+
     $stmt->bind_param("i", $inventario_usuario_id);
     $stmt->execute();
     $res = $stmt->get_result();
@@ -105,10 +112,31 @@ try {
     $usuario_propietario_id = intval($inv['usuario_propietario_id']);
     $stock_actual = intval($inv['stock']);
     $precio_unitario = floatval($inv['precio_venta']);
-    $costo_unitario = floatval($inv['precio_proveedor']);
+$costo_unitario = floatval($inv['precio_proveedor']);
+
+$ajuste_unitario = isset($producto['ajuste_unitario'])
+  ? floatval($producto['ajuste_unitario'])
+  : 0;
+
+$precio_final_unitario = $precio_unitario + $ajuste_unitario;
+
+if ($precio_final_unitario < 0) {
+  throw new Exception("El precio final de '{$nombre_producto}' no puede ser menor a $0.00.");
+}
 
     $codigo_producto = $inv['codigo'];
-    $nombre_producto = $inv['nombre'];
+    $marca_producto = $inv['marca'] ?? '';
+    $modelo_producto = $inv['modelo'] ?? '';
+    $nombre_producto = trim($inv['nombre'] ?? '');
+
+    if ($nombre_producto === '') {
+      $nombre_producto = trim($marca_producto . ' ' . $modelo_producto);
+    }
+
+    if ($nombre_producto === '') {
+      $nombre_producto = 'Sin marca/modelo';
+    }
+
     $propietario = $inv['propietario'] ?: '—';
 
     if ($stock_actual < $cantidad) {
@@ -117,9 +145,9 @@ try {
       );
     }
 
-    $total = $precio_unitario * $cantidad;
-    $utilidad_total = ($precio_unitario - $costo_unitario) * $cantidad;
-    $nuevo_stock = $stock_actual - $cantidad;
+    $total = $precio_final_unitario * $cantidad;
+$utilidad_total = ($precio_final_unitario - $costo_unitario) * $cantidad;
+$nuevo_stock = $stock_actual - $cantidad;
 
     /*
       Insertar venta.
@@ -128,38 +156,44 @@ try {
       precio_unitario, costo_unitario, utilidad_total.
     */
     $stmtVenta = $conexion->prepare("
-      INSERT INTO pagos_productos (
-        venta_id,
-        producto_id,
-        inventario_usuario_id,
-        cantidad,
-        precio_unitario,
-        costo_unitario,
-        total,
-        utilidad_total,
-        metodo_pago,
-        fecha_pago,
-        usuario_id,
-        usuario_propietario_id,
-        observaciones
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
-    ");
+  INSERT INTO pagos_productos (
+    venta_id,
+    producto_id,
+    inventario_usuario_id,
+    cantidad,
+    precio_unitario,
+    ajuste_unitario,
+    costo_unitario,
+    total,
+    utilidad_total,
+    metodo_pago,
+    fecha_pago,
+    usuario_id,
+    usuario_propietario_id,
+    observaciones
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+");
+
+    if (!$stmtVenta) {
+      throw new Exception("Error al preparar venta: " . $conexion->error);
+    }
 
     $stmtVenta->bind_param(
-      "siiiddddssii",
-      $venta_id,
-      $producto_id,
-      $inventario_usuario_id,
-      $cantidad,
-      $precio_unitario,
-      $costo_unitario,
-      $total,
-      $utilidad_total,
-      $metodo_pago,
-      $fecha_pago,
-      $usuario_id,
-      $usuario_propietario_id
-    );
+  "siiidddddssii",
+  $venta_id,
+  $producto_id,
+  $inventario_usuario_id,
+  $cantidad,
+  $precio_unitario,
+  $ajuste_unitario,
+  $costo_unitario,
+  $total,
+  $utilidad_total,
+  $metodo_pago,
+  $fecha_pago,
+  $usuario_id,
+  $usuario_propietario_id
+);
 
     if (!$stmtVenta->execute()) {
       throw new Exception("Error al guardar '{$nombre_producto}' en la venta: " . $stmtVenta->error);
@@ -178,6 +212,10 @@ try {
         AND stock >= ?
     ");
 
+    if (!$stmtStock) {
+      throw new Exception("Error al preparar actualización de stock: " . $conexion->error);
+    }
+
     $stmtStock->bind_param(
       "iii",
       $cantidad,
@@ -195,49 +233,53 @@ try {
 
     $stmtStock->close();
 
-   $stmtMov = $conexion->prepare("
-  INSERT INTO inventario_movimientos (
-    producto_id,
-    inventario_usuario_id,
-    producto_codigo,
-    producto_nombre,
-    tipo,
-    cantidad,
-    costo_unitario,
-    stock_despues,
-    ref_tabla,
-    ref_id,
-    usuario_id,
-    usuario_propietario_id,
-    almacen_id,
-    nota,
-    creado_en
-  ) VALUES (?, ?, ?, ?, 'venta', ?, ?, ?, 'pagos_productos', ?, ?, ?, NULL, ?, ?)
-");
+    $stmtMov = $conexion->prepare("
+      INSERT INTO inventario_movimientos (
+        producto_id,
+        inventario_usuario_id,
+        producto_codigo,
+        producto_nombre,
+        tipo,
+        cantidad,
+        costo_unitario,
+        stock_despues,
+        ref_tabla,
+        ref_id,
+        usuario_id,
+        usuario_propietario_id,
+        almacen_id,
+        nota,
+        creado_en
+      ) VALUES (?, ?, ?, ?, 'venta', ?, ?, ?, 'pagos_productos', ?, ?, ?, NULL, ?, ?)
+    ");
 
-$nota = "Venta POS {$venta_id}";
+    if (!$stmtMov) {
+      throw new Exception("Error al preparar movimiento: " . $conexion->error);
+    }
 
-$stmtMov->bind_param(
-  "iissdddiiiss",
-  $producto_id,
-  $inventario_usuario_id,
-  $codigo_producto,
-  $nombre_producto,
-  $cantidad,
-  $costo_unitario,
-  $nuevo_stock,
-  $pago_producto_id,
-  $usuario_id,
-  $usuario_propietario_id,
-  $nota,
-  $fecha_pago
-);
+    $nota = "Venta POS {$venta_id}";
 
-if (!$stmtMov->execute()) {
-  throw new Exception("Error al registrar movimiento de '{$nombre_producto}': " . $stmtMov->error);
-}
+    $stmtMov->bind_param(
+      "iissdddiiiss",
+      $producto_id,
+      $inventario_usuario_id,
+      $codigo_producto,
+      $nombre_producto,
+      $cantidad,
+      $costo_unitario,
+      $nuevo_stock,
+      $pago_producto_id,
+      $usuario_id,
+      $usuario_propietario_id,
+      $nota,
+      $fecha_pago
+    );
 
-$stmtMov->close();
+    if (!$stmtMov->execute()) {
+      throw new Exception("Error al registrar movimiento de '{$nombre_producto}': " . $stmtMov->error);
+    }
+
+    $stmtMov->close();
 
     /*
       Sincronizar productos.stock como suma de todos los inventarios activos.
@@ -254,6 +296,10 @@ $stmtMov->close();
       WHERE p.id = ?
     ");
 
+    if (!$stmtSync) {
+      throw new Exception("Error al preparar sincronización de stock: " . $conexion->error);
+    }
+
     $stmtSync->bind_param("i", $producto_id);
 
     if (!$stmtSync->execute()) {
@@ -269,6 +315,8 @@ $stmtMov->close();
       "inventario_usuario_id" => $inventario_usuario_id,
       "usuario_propietario_id" => $usuario_propietario_id,
       "codigo" => $codigo_producto,
+      "marca" => $marca_producto,
+      "modelo" => $modelo_producto,
       "nombre" => $nombre_producto,
       "propietario" => $propietario,
       "cantidad" => $cantidad,

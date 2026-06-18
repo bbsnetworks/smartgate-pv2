@@ -87,7 +87,10 @@ $stmt = $conexion->prepare("
     pp.inventario_usuario_id,
 
     COALESCE(prod.codigo, '') AS codigo,
-    COALESCE(prod.nombre, 'Producto eliminado') AS producto,
+    COALESCE(
+    NULLIF(TRIM(CONCAT_WS(' ', prod.marca, prod.modelo)), ''),
+    'Producto eliminado'
+    ) AS producto,
 
     SUM(pp.cantidad) AS cantidad,
     SUM(pp.total) AS total_vendido,
@@ -107,7 +110,8 @@ $stmt = $conexion->prepare("
     pp.producto_id,
     pp.inventario_usuario_id,
     prod.codigo,
-    prod.nombre
+    prod.marca,
+    prod.modelo
 
   ORDER BY ganancia_total DESC, total_vendido DESC
 ");

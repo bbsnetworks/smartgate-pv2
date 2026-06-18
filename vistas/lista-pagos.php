@@ -75,11 +75,11 @@ endif;
   </div>
 
   <input
-    type="text"
-    id="filtroPagos"
-    placeholder="🔍 Buscar por folio, usuario o producto..."
-    class="w-full sm:w-full px-4 py-3 rounded-lg bg-slate-700 text-slate-100 placeholder-slate-400 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow"
-  >
+  type="text"
+  id="filtroPagos"
+  placeholder="🔍 Buscar por folio, usuario, marca o modelo..."
+  class="w-full sm:w-full px-4 py-3 rounded-lg bg-slate-700 text-slate-100 placeholder-slate-400 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow"
+>
 </div>
 
 

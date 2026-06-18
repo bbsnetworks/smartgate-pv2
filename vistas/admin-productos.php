@@ -81,11 +81,11 @@ endif;
     <!-- Izquierda: búsqueda -->
     <div class="flex-1 grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3">
       <input
-        id="busquedaProducto"
-        type="text"
-        placeholder="Buscar (nombre, código, descripción)"
-        class="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-600"
-      />
+  id="busquedaProducto"
+  type="text"
+  placeholder="Buscar por marca, modelo, código o descripción"
+  class="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 outline-none focus:ring-2 focus:ring-blue-600"
+/>
     </div>
 
     <!-- Derecha: acciones -->
@@ -104,14 +104,12 @@ endif;
   </div>
 </div>
 
-<!-- Tabla -->
-<!-- Tabla de productos -->
-<div class="overflow-x-auto max-w-6xl mx-auto mt-4">
+<div class="overflow-x-auto max-w-7xl mx-auto mt-4">
   <table class="min-w-full table-fixed bg-slate-800 text-slate-100 rounded-xl overflow-hidden shadow-xl">
     <thead class="bg-slate-700 text-slate-200 text-left">
   <tr class="text-slate-300 text-sm uppercase">
     <th class="p-3 w-36">Código</th>
-    <th class="p-3 w-52">Nombre</th>
+    <th class="p-3 w-64">Producto</th>
     <th class="p-3 w-40">Dueño</th>
     <th class="p-3 w-28 text-right">Venta</th>
     <th class="p-3 w-28 text-right">Costo</th>

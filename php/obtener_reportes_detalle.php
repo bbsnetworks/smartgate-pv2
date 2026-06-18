@@ -105,7 +105,10 @@ if (!$isTodos) {
       pp.inventario_usuario_id,
       pp.usuario_propietario_id,
 
-      COALESCE(prod.nombre, 'Producto eliminado') AS producto,
+      COALESCE(
+        NULLIF(TRIM(CONCAT_WS(' ', prod.marca, prod.modelo)), ''),
+        'Producto eliminado'
+      ) AS producto,
       COALESCE(prod.codigo, '') AS codigo,
 
       pp.cantidad,
@@ -144,7 +147,10 @@ if (!$isTodos) {
       pp.inventario_usuario_id,
       pp.usuario_propietario_id,
 
-      COALESCE(prod.nombre, 'Producto eliminado') AS producto,
+      COALESCE(
+        NULLIF(TRIM(CONCAT_WS(' ', prod.marca, prod.modelo)), ''),
+        'Producto eliminado'
+      ) AS producto,
       COALESCE(prod.codigo, '') AS codigo,
 
       pp.cantidad,

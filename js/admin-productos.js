@@ -33,7 +33,7 @@ function cargarProductos(pagina = 1) {
         renderPaginacion(); // ⬅️ esta parte es nueva
       } else {
         document.getElementById("tabla-productos").innerHTML =
-          '<tr><td colspan="10" class="text-center py-4">No se pudieron cargar productos</td></tr>';;
+          '<tr><td colspan="10" class="text-center py-4">No se pudieron cargar productos</td></tr>';
       }
     });
 }
@@ -80,6 +80,16 @@ function mostrarProductosFiltrados(productos) {
           "'": "&#39;",
         })[m],
     );
+  const nombreProducto = (p) => {
+    const marca = String(p.marca ?? "").trim();
+    const modelo = String(p.modelo ?? "").trim();
+
+    if (marca && modelo) return `${marca} ${modelo}`;
+    if (modelo) return modelo;
+    if (marca) return marca;
+
+    return "Sin marca/modelo";
+  };
 
   productos.forEach((p) => {
     const prov = p.proveedor_nombre || "—";
@@ -88,7 +98,7 @@ function mostrarProductosFiltrados(productos) {
 
     const precio = Number(p.precio || 0);
     const costo = Number(p.precio_proveedor || 0);
-    const ganancia = Number(p.ganancia_unitaria ?? (precio - costo));
+    const ganancia = Number(p.ganancia_unitaria ?? precio - costo);
 
     const gananciaClass =
       ganancia < 0
@@ -104,7 +114,10 @@ function mostrarProductosFiltrados(productos) {
       <td class="px-4 py-3 whitespace-nowrap">${esc(p.codigo)}</td>
 
       <td class="px-4 py-3">
-        <div class="font-semibold whitespace-nowrap">${esc(p.nombre)}</div>
+        <div class="font-semibold whitespace-nowrap">${esc(nombreProducto(p))}</div>
+        <div class="text-xs text-slate-400">
+          Marca: ${esc(p.marca || "—")} · Modelo: ${esc(p.modelo || "—")}
+        </div>
         ${
           p.descripcion
             ? `<div class="text-xs text-slate-400 max-w-[260px] truncate">${esc(p.descripcion)}</div>`
@@ -198,7 +211,7 @@ function abrirModalAgregar() {
       </p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div>
         <label class="block mb-1 font-semibold text-slate-300">Código de barras</label>
         <input 
@@ -211,13 +224,22 @@ function abrirModalAgregar() {
       </div>
 
       <div>
-        <label class="block mb-1 font-semibold text-slate-300">Nombre del producto</label>
-        <input 
-          id="nombre" 
-          class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500" 
-          placeholder="Ej. Coca Cola 600ml"
-        >
-      </div>
+  <label class="block mb-1 font-semibold text-slate-300">Marca</label>
+  <input 
+    id="marca" 
+    class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500" 
+    placeholder="Ej. Coca Cola"
+  >
+</div>
+
+<div>
+  <label class="block mb-1 font-semibold text-slate-300">Modelo / Presentación</label>
+  <input 
+    id="modelo" 
+    class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-blue-500" 
+    placeholder="Ej. 600ml"
+  >
+</div>
     </div>
 
     <div>
@@ -360,7 +382,8 @@ function abrirModalAgregar() {
         preConfirm: () => {
           const val = (id) => document.getElementById(id).value.trim();
           const codigo = val("codigo");
-          const nombre = val("nombre");
+          const marca = val("marca");
+          const modelo = val("modelo");
           const descripcion = val("descripcion");
           const precio = parseFloat(val("precio"));
           const precio_proveedor = parseFloat(val("precio_proveedor"));
@@ -373,8 +396,10 @@ function abrirModalAgregar() {
 
           if (!codigo || !/^\d+$/.test(codigo))
             return Swal.showValidationMessage("El código debe ser numérico.");
-          if (!nombre)
-            return Swal.showValidationMessage("El nombre es obligatorio.");
+          if (!marca)
+            return Swal.showValidationMessage("La marca es obligatoria.");
+          if (!modelo)
+            return Swal.showValidationMessage("El modelo es obligatorio.");
           if (!descripcion)
             return Swal.showValidationMessage("La descripción es obligatoria.");
           if (isNaN(precio) || precio < 0)
@@ -389,7 +414,8 @@ function abrirModalAgregar() {
 
           return {
             codigo,
-            nombre,
+            marca,
+            modelo,
             descripcion,
             precio,
             precio_proveedor,
@@ -582,38 +608,49 @@ function editarProducto(id) {
 
 function ejecutarEdicionProducto(id) {
   Promise.all([
-    fetch(`../php/productos_controller.php?id=${id}`).then(r => r.json()),
-    fetch("../php/categorias_controller.php").then(r => r.json()),
-    fetch("../php/proveedores_controller.php?action=listar&activo=1&limit=200").then(r => r.json())
+    fetch(`../php/productos_controller.php?id=${id}`).then((r) => r.json()),
+    fetch("../php/categorias_controller.php").then((r) => r.json()),
+    fetch(
+      "../php/proveedores_controller.php?action=listar&activo=1&limit=200",
+    ).then((r) => r.json()),
   ]).then(([producto, catData, provData]) => {
     if (producto.error) {
-      swalError.fire("Error", producto.error || "No se pudo cargar el producto", "error");
+      swalError.fire(
+        "Error",
+        producto.error || "No se pudo cargar el producto",
+        "error",
+      );
       return;
     }
 
     const categoriasOptions = (catData.categorias || [])
-      .map(cat => `
+      .map(
+        (cat) => `
         <option value="${cat.id}" ${cat.id == producto.categoria_id ? "selected" : ""}>
           ${cat.nombre}
         </option>
-      `)
+      `,
+      )
       .join("");
 
     const provOptions = [
       `<option value="">— Sin proveedor —</option>`,
-      ...(provData.proveedores || []).map(pr => `
+      ...(provData.proveedores || []).map(
+        (pr) => `
         <option value="${pr.id}" ${pr.id == (producto.proveedor_id ?? "") ? "selected" : ""}>
           ${pr.nombre}
         </option>
-      `)
+      `,
+      ),
     ].join("");
 
     const propietario = producto.propietario || "Usuario actual";
 
-    swalcard.fire({
-      title: "Editar Producto",
-      width: 820,
-      html: `
+    swalcard
+      .fire({
+        title: "Editar Producto",
+        width: 820,
+        html: `
         <div class="text-left text-sm text-slate-200 space-y-4">
 
           <div class="rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
@@ -626,7 +663,7 @@ function ejecutarEdicionProducto(id) {
             </p>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label class="block mb-1 font-semibold text-slate-300">Código de barras</label>
               <input
@@ -639,13 +676,22 @@ function ejecutarEdicionProducto(id) {
             </div>
 
             <div>
-              <label class="block mb-1 font-semibold text-slate-300">Nombre del producto</label>
-              <input
-                id="nombre"
-                class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-yellow-500"
-                value="${producto.nombre || ""}"
-              >
-            </div>
+  <label class="block mb-1 font-semibold text-slate-300">Marca</label>
+  <input
+    id="marca"
+    class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-yellow-500"
+    value="${producto.marca || ""}"
+  >
+</div>
+
+<div>
+  <label class="block mb-1 font-semibold text-slate-300">Modelo / Presentación</label>
+  <input
+    id="modelo"
+    class="w-full rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-yellow-500"
+    value="${producto.modelo || ""}"
+  >
+</div>
           </div>
 
           <div>
@@ -751,116 +797,146 @@ function ejecutarEdicionProducto(id) {
 
         </div>
       `,
-      confirmButtonText: "Guardar Cambios",
-      cancelButtonText: "Cancelar",
-      showCancelButton: true,
-      focusConfirm: false,
-      didOpen: () => {
-        Swal.getPopup().classList.add("bg-slate-800", "text-slate-100");
+        confirmButtonText: "Guardar Cambios",
+        cancelButtonText: "Cancelar",
+        showCancelButton: true,
+        focusConfirm: false,
+        didOpen: () => {
+          Swal.getPopup().classList.add("bg-slate-800", "text-slate-100");
 
-        const precioInput = document.getElementById("precio");
-        const costoInput = document.getElementById("precio_proveedor");
-        const stockInput = document.getElementById("stock");
+          const precioInput = document.getElementById("precio");
+          const costoInput = document.getElementById("precio_proveedor");
+          const stockInput = document.getElementById("stock");
 
-        const previewGanancia = document.getElementById("editPreviewGanancia");
-        const previewInversion = document.getElementById("editPreviewInversion");
-        const previewVentaTotal = document.getElementById("editPreviewVentaTotal");
+          const previewGanancia = document.getElementById(
+            "editPreviewGanancia",
+          );
+          const previewInversion = document.getElementById(
+            "editPreviewInversion",
+          );
+          const previewVentaTotal = document.getElementById(
+            "editPreviewVentaTotal",
+          );
 
-        const formato = valor => `$${Number(valor || 0).toFixed(2)}`;
+          const formato = (valor) => `$${Number(valor || 0).toFixed(2)}`;
 
-        const actualizarPreview = () => {
-          const precio = parseFloat(precioInput.value) || 0;
-          const costo = parseFloat(costoInput.value) || 0;
-          const stock = parseInt(stockInput.value || "0", 10) || 0;
+          const actualizarPreview = () => {
+            const precio = parseFloat(precioInput.value) || 0;
+            const costo = parseFloat(costoInput.value) || 0;
+            const stock = parseInt(stockInput.value || "0", 10) || 0;
 
-          const ganancia = precio - costo;
-          const inversion = costo * stock;
-          const ventaTotal = precio * stock;
+            const ganancia = precio - costo;
+            const inversion = costo * stock;
+            const ventaTotal = precio * stock;
 
-          previewGanancia.textContent = formato(ganancia);
-          previewInversion.textContent = formato(inversion);
-          previewVentaTotal.textContent = formato(ventaTotal);
+            previewGanancia.textContent = formato(ganancia);
+            previewInversion.textContent = formato(inversion);
+            previewVentaTotal.textContent = formato(ventaTotal);
 
-          previewGanancia.classList.toggle("text-red-400", ganancia < 0);
-          previewGanancia.classList.toggle("text-emerald-400", ganancia >= 0);
-        };
+            previewGanancia.classList.toggle("text-red-400", ganancia < 0);
+            previewGanancia.classList.toggle("text-emerald-400", ganancia >= 0);
+          };
 
-        precioInput.addEventListener("input", actualizarPreview);
-        costoInput.addEventListener("input", actualizarPreview);
+          precioInput.addEventListener("input", actualizarPreview);
+          costoInput.addEventListener("input", actualizarPreview);
 
-        actualizarPreview();
-      },
-      preConfirm: () => {
-        const codigo = document.getElementById("codigo").value.trim();
-        const nombre = document.getElementById("nombre").value.trim();
-        const descripcion = document.getElementById("descripcion").value.trim();
-        const precio = parseFloat(document.getElementById("precio").value);
-        const precio_proveedor = parseFloat(document.getElementById("precio_proveedor").value || "0");
-        const stock = parseInt(document.getElementById("stock").value || "0", 10);
-        const categoria_id = parseInt(document.getElementById("categoria_id").value);
-        const provSel = document.getElementById("proveedor_id").value;
-        const proveedor_id = provSel ? parseInt(provSel, 10) : null;
+          actualizarPreview();
+        },
+        preConfirm: () => {
+          const codigo = document.getElementById("codigo").value.trim();
+          const marca = document.getElementById("marca").value.trim();
+          const modelo = document.getElementById("modelo").value.trim();
+          const descripcion = document
+            .getElementById("descripcion")
+            .value.trim();
+          const precio = parseFloat(document.getElementById("precio").value);
+          const precio_proveedor = parseFloat(
+            document.getElementById("precio_proveedor").value || "0",
+          );
+          const stock = parseInt(
+            document.getElementById("stock").value || "0",
+            10,
+          );
+          const categoria_id = parseInt(
+            document.getElementById("categoria_id").value,
+          );
+          const provSel = document.getElementById("proveedor_id").value;
+          const proveedor_id = provSel ? parseInt(provSel, 10) : null;
 
-        if (!codigo || !/^\d+$/.test(codigo)) {
-          return Swal.showValidationMessage("Código inválido.");
-        }
-
-        if (!nombre) {
-          return Swal.showValidationMessage("El nombre es obligatorio.");
-        }
-
-        if (!descripcion) {
-          return Swal.showValidationMessage("La descripción es obligatoria.");
-        }
-
-        if (isNaN(precio) || precio < 0) {
-          return Swal.showValidationMessage("Precio inválido.");
-        }
-
-        if (isNaN(precio_proveedor) || precio_proveedor < 0) {
-          return Swal.showValidationMessage("Costo proveedor inválido.");
-        }
-
-        if (isNaN(categoria_id)) {
-          return Swal.showValidationMessage("Selecciona una categoría.");
-        }
-
-        return {
-          id,
-          inventario_usuario_id: id,
-          producto_id: producto.producto_id,
-          codigo,
-          nombre,
-          descripcion,
-          precio,
-          precio_proveedor,
-          stock,
-          categoria_id,
-          proveedor_id
-        };
-      }
-    }).then((result) => {
-      if (!result.isConfirmed) return;
-
-      fetch("../php/productos_controller.php", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(result.value),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success) {
-            swalSuccess
-              .fire("Actualizado", data.msg, "success")
-              .then(() => cargarProductos(paginaActual));
-          } else {
-            swalError.fire("Error", data.error || "No se pudo actualizar", "error");
+          if (!codigo || !/^\d+$/.test(codigo)) {
+            return Swal.showValidationMessage("Código inválido.");
           }
+
+          if (!marca) {
+            return Swal.showValidationMessage("La marca es obligatoria.");
+          }
+
+          if (!modelo) {
+            return Swal.showValidationMessage("El modelo es obligatorio.");
+          }
+
+          if (!descripcion) {
+            return Swal.showValidationMessage("La descripción es obligatoria.");
+          }
+
+          if (isNaN(precio) || precio < 0) {
+            return Swal.showValidationMessage("Precio inválido.");
+          }
+
+          if (isNaN(precio_proveedor) || precio_proveedor < 0) {
+            return Swal.showValidationMessage("Costo proveedor inválido.");
+          }
+
+          if (isNaN(categoria_id)) {
+            return Swal.showValidationMessage("Selecciona una categoría.");
+          }
+
+          return {
+            id,
+            inventario_usuario_id: id,
+            producto_id: producto.producto_id,
+            codigo,
+            marca,
+            modelo,
+            descripcion,
+            precio,
+            precio_proveedor,
+            stock,
+            categoria_id,
+            proveedor_id,
+          };
+        },
+      })
+      .then((result) => {
+        if (!result.isConfirmed) return;
+
+        fetch("../php/productos_controller.php", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(result.value),
         })
-        .catch(() => {
-          swalError.fire("Error", "No se pudo conectar con el servidor", "error");
-        });
-    });
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.success) {
+              swalSuccess
+                .fire("Actualizado", data.msg, "success")
+                .then(() => cargarProductos(paginaActual));
+            } else {
+              swalError.fire(
+                "Error",
+                data.error || "No se pudo actualizar",
+                "error",
+              );
+            }
+          })
+          .catch(() => {
+            swalError.fire(
+              "Error",
+              "No se pudo conectar con el servidor",
+              "error",
+            );
+          });
+      });
   });
 }
 
@@ -868,7 +944,7 @@ async function abrirModalMovimiento() {
   const html = `
     <div class="space-y-3 text-left text-sm">
       <label class="block text-slate-300 font-semibold">Buscar producto</label>
-      <input id="mv-buscar" class="w-full p-2 rounded bg-slate-700 text-slate-100" placeholder="Código, nombre o descripción">
+      <input id="mv-buscar" class="w-full p-2 rounded bg-slate-700 text-slate-100" placeholder="Código, marca, modelo o descripción">
 
       <div id="mv-resultados" style="display:none" class="max-h-56 overflow-auto mt-2 bg-slate-800 rounded border border-slate-700"></div>
 
@@ -922,7 +998,7 @@ async function abrirModalMovimiento() {
     showCancelButton: true,
     confirmButtonText: "Registrar movimiento",
     focusConfirm: false,
-    allowOutsideClick: false, // 👈 evita cierres al hacer click fuera
+    allowOutsideClick: false,
     didOpen: () => {
       Swal.getPopup().classList.add("bg-slate-800", "text-slate-100");
 
@@ -996,13 +1072,13 @@ async function abrirModalMovimiento() {
           }
 
           $res.innerHTML = data.productos
-  .map(
-    (p) => `
+            .map(
+              (p) => `
       <button 
         type="button" 
         data-id="${p.id}" 
         data-codigo="${p.codigo}"
-        data-nombre="${p.nombre}" 
+        data-nombre="${`${p.marca ?? ""} ${p.modelo ?? ""}`.trim()}" 
         data-stock="${p.stock}" 
         data-cat="${p.categoria ?? ""}"
         data-propietario="${p.propietario ?? "—"}"
@@ -1011,7 +1087,7 @@ async function abrirModalMovimiento() {
         <div class="flex items-start justify-between gap-3">
           <div>
             <div class="font-semibold text-slate-100">
-              ${p.codigo} — ${p.nombre}
+              ${p.codigo} — ${`${p.marca ?? ""} ${p.modelo ?? ""}`.trim()}
             </div>
 
             <div class="text-xs text-blue-300 mt-1">
@@ -1032,8 +1108,8 @@ async function abrirModalMovimiento() {
         </div>
       </button>
     `,
-  )
-  .join("");
+            )
+            .join("");
 
           // seleccionar producto
           Array.from($res.querySelectorAll("button")).forEach((btn) => {
@@ -1335,7 +1411,9 @@ function renderReporteMovimientos(data) {
   <div class="flex items-center justify-between mb-2">
     <div>
       <div class="text-xs text-slate-300">Producto</div>
-      <div class="font-semibold">${esc(p.codigo)} — ${esc(p.nombre)}</div>
+      <div class="font-semibold">
+        ${esc(p.codigo)} — ${esc(`${p.marca ?? ""} ${p.modelo ?? ""}`.trim() || "Sin marca/modelo")}
+      </div>
 
       <div class="mt-1 inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-slate-900/60 border border-slate-600">
         <span class="text-xs text-slate-400">Propietario:</span>
@@ -1648,7 +1726,9 @@ async function generarPDFInventarioMovs(data, meta) {
     ensureSpace(30);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
-    doc.text(`${p.codigo} — ${p.nombre}`, M, y + 10);
+    const productoTxt =
+      `${p.marca ?? ""} ${p.modelo ?? ""}`.trim() || "Sin marca/modelo";
+    doc.text(`${p.codigo} — ${productoTxt}`, M, y + 10);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);

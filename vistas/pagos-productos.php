@@ -48,7 +48,7 @@ endif;
       <label for="codigo" class="block text-slate-300 font-semibold mb-1">📷 Escanea o ingresa el código:</label>
       <input id="codigo" type="text"
         class="w-full bg-slate-700 text-slate-100 border border-slate-600 placeholder-slate-400 px-4 py-2 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        placeholder="Escanea código o escribe nombre de producto" autocomplete="off" />
+        placeholder="Escanea código o escribe marca / modelo del producto" autocomplete="off" />
       <!-- Contenedor para sugerencias -->
       <div id="sugerencias"
         class="absolute top-full left-0 w-full bg-slate-800 text-slate-100 border border-slate-600 rounded-lg shadow-lg mt-1 z-50 hidden max-h-60 overflow-y-auto">
@@ -63,6 +63,7 @@ endif;
             <th class="px-4 py-2 border-b border-slate-600">Dueño</th>
             <th class="px-4 py-2 border-b border-slate-600">Cantidad</th>
             <th class="px-4 py-2 border-b border-slate-600">Precio</th>
+            <th class="px-4 py-2 border-b border-slate-600">Desc./Com.</th>
             <th class="px-4 py-2 border-b border-slate-600">Total</th>
             <th class="px-4 py-2 border-b border-slate-600">Eliminar</th>
           </tr>

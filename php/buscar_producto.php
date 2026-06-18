@@ -26,17 +26,21 @@ if ($producto_id > 0) {
 } else {
   $like = "%{$codigo}%";
   $whereExtra = "(
-    p.codigo = ?
-    OR p.codigo LIKE ?
-    OR p.nombre LIKE ?
-    OR p.descripcion LIKE ?
-  )";
+  p.codigo = ?
+  OR p.codigo LIKE ?
+  OR p.marca LIKE ?
+  OR p.modelo LIKE ?
+  OR p.descripcion LIKE ?
+  OR TRIM(CONCAT_WS(' ', p.marca, p.modelo)) LIKE ?
+)";
 
-  $params[] = $codigo;
-  $params[] = $like;
-  $params[] = $like;
-  $params[] = $like;
-  $types .= "ssss";
+$params[] = $codigo;
+$params[] = $like;
+$params[] = $like;
+$params[] = $like;
+$params[] = $like;
+$params[] = $like;
+$types .= "ssssss";
 }
 
 $sql = "
@@ -47,7 +51,9 @@ $sql = "
     iu.usuario_id AS usuario_propietario_id,
 
     p.codigo,
-    p.nombre,
+    p.marca,
+    p.modelo,
+    TRIM(CONCAT_WS(' ', p.marca, p.modelo)) AS nombre,
     p.descripcion,
 
     iu.precio_venta AS precio,
@@ -97,6 +103,8 @@ while ($row = $res->fetch_assoc()) {
     "usuario_propietario_id" => (int)$row["usuario_propietario_id"],
 
     "codigo" => $row["codigo"],
+    "marca" => $row["marca"],
+    "modelo" => $row["modelo"],
     "nombre" => $row["nombre"],
     "descripcion" => $row["descripcion"],
 

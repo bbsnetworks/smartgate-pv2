@@ -19,10 +19,7 @@ function aplicarMovimientoInventario($conexion, $inventario_usuario_id, $tipo, $
   $conexion->begin_transaction();
 
   try {
-    /*
-      Ahora bloqueamos el inventario exacto:
-      inventario_usuarios.id
-    */
+  
     $sql = "SELECT
               iu.id AS inventario_usuario_id,
               iu.producto_id,
@@ -30,7 +27,9 @@ function aplicarMovimientoInventario($conexion, $inventario_usuario_id, $tipo, $
               iu.stock,
               iu.precio_proveedor,
               p.codigo,
-              p.nombre
+              p.marca,
+              p.modelo,
+              TRIM(CONCAT_WS(' ', p.marca, p.modelo)) AS nombre
             FROM inventario_usuarios iu
             INNER JOIN productos p ON p.id = iu.producto_id
             WHERE iu.id = ?
@@ -233,12 +232,7 @@ function obtenerProductos($conexion)
     return;
   }
 
-  /*
-    Detalle por ID.
-    IMPORTANTE:
-    Ahora el id que se usará en la tabla será inventario_usuarios.id,
-    no productos.id.
-  */
+
   if (isset($_GET['id'])) {
     $id = intval($_GET['id']);
 
@@ -250,7 +244,9 @@ function obtenerProductos($conexion)
               u.nombre AS propietario,
 
               p.codigo,
-              p.nombre,
+              p.marca,
+              p.modelo,
+              TRIM(CONCAT_WS(' ', p.marca, p.modelo)) AS nombre,
               p.descripcion,
               p.categoria_id,
 
@@ -269,10 +265,7 @@ function obtenerProductos($conexion)
             LEFT JOIN proveedores pr ON pr.id = iu.proveedor_id
             WHERE iu.id = ?";
 
-    /*
-      Si es worker, solo puede consultar su propio inventario.
-      Admin/root pueden consultar todos.
-    */
+
     if ($rol === 'worker') {
       $sql .= " AND iu.usuario_id = ?";
     }
@@ -323,26 +316,28 @@ function obtenerProductos($conexion)
   }
 
   if ($busqueda !== '') {
-    $whereParts[] = "(
-      p.nombre LIKE ?
-      OR p.descripcion LIKE ?
-      OR p.codigo LIKE ?
-      OR c.nombre LIKE ?
-      OR pr.nombre LIKE ?
-      OR u.nombre LIKE ?
-    )";
+  $whereParts[] = "(
+    p.marca LIKE ?
+    OR p.modelo LIKE ?
+    OR p.descripcion LIKE ?
+    OR p.codigo LIKE ?
+    OR c.nombre LIKE ?
+    OR pr.nombre LIKE ?
+    OR u.nombre LIKE ?
+  )";
 
-    $like = "%$busqueda%";
+  $like = "%$busqueda%";
 
-    $params[] = $like;
-    $params[] = $like;
-    $params[] = $like;
-    $params[] = $like;
-    $params[] = $like;
-    $params[] = $like;
+  $params[] = $like;
+  $params[] = $like;
+  $params[] = $like;
+  $params[] = $like;
+  $params[] = $like;
+  $params[] = $like;
+  $params[] = $like;
 
-    $types .= "ssssss";
-  }
+  $types .= "sssssss";
+}
 
   $where = "WHERE " . implode(" AND ", $whereParts);
 
@@ -354,7 +349,9 @@ function obtenerProductos($conexion)
             u.nombre AS propietario,
 
             p.codigo,
-            p.nombre,
+            p.marca,
+            p.modelo,
+            TRIM(CONCAT_WS(' ', p.marca, p.modelo)) AS nombre,
             p.descripcion,
             p.categoria_id,
 
@@ -368,7 +365,7 @@ function obtenerProductos($conexion)
             (iu.precio_venta - iu.precio_proveedor) AS ganancia_unitaria
           $base
           $where
-          ORDER BY p.nombre ASC, u.nombre ASC
+          ORDER BY p.marca ASC, p.modelo ASC, u.nombre ASC
           LIMIT ? OFFSET ?";
 
   $paramsDatos = $params;
@@ -420,10 +417,12 @@ function agregarProducto($conexion) {
   }
 
   $codigo            = trim($data['codigo'] ?? '');
-  $nombre            = trim($data['nombre'] ?? '');
+  $marca             = trim($data['marca'] ?? '');
+  $modelo            = trim($data['modelo'] ?? '');
+  $nombre            = trim($marca . ' ' . $modelo);
   $descripcion       = trim($data['descripcion'] ?? '');
-  $precio            = (float)($data['precio'] ?? -1); // precio venta
-  $precio_proveedor  = (float)($data['precio_proveedor'] ?? -1); // costo
+  $precio            = (float)($data['precio'] ?? -1); 
+  $precio_proveedor  = (float)($data['precio_proveedor'] ?? -1); 
   $stock_inicial     = (int)($data['stock'] ?? -1);
   $categoria_id      = (int)($data['categoria_id'] ?? 0);
 
@@ -434,14 +433,15 @@ function agregarProducto($conexion) {
   ) ? (int)$data['proveedor_id'] : null;
 
   if (
-    !$codigo ||
-    !$nombre ||
-    !$descripcion ||
-    $precio < 0 ||
-    $precio_proveedor < 0 ||
-    $stock_inicial < 0 ||
-    $categoria_id <= 0
-  ) {
+  !$codigo ||
+  !$marca ||
+  !$modelo ||
+  !$descripcion ||
+  $precio < 0 ||
+  $precio_proveedor < 0 ||
+  $stock_inicial < 0 ||
+  $categoria_id <= 0
+) {
     echo json_encode([
       "success" => false,
       "error" => "Todos los campos son obligatorios y deben ser válidos"
@@ -487,14 +487,13 @@ function agregarProducto($conexion) {
     $producto_id = 0;
     $producto_existente = false;
 
-    // 1. Buscar si ya existe el producto por código
     $stmt = $conexion->prepare("
-      SELECT id, nombre
-      FROM productos
-      WHERE codigo = ?
-      LIMIT 1
-      FOR UPDATE
-    ");
+  SELECT id, marca, modelo
+  FROM productos
+  WHERE codigo = ?
+  LIMIT 1
+  FOR UPDATE
+");
     $stmt->bind_param("s", $codigo);
     $stmt->execute();
     $resProducto = $stmt->get_result();
@@ -509,23 +508,24 @@ function agregarProducto($conexion) {
       // Si no existe, lo creamos en productos
       if (is_null($proveedor_id)) {
         $sql = "INSERT INTO productos
-          (nombre, codigo, descripcion, precio, precio_proveedor, proveedor_id, stock, categoria_id)
-          VALUES (?, ?, ?, ?, ?, NULL, 0, ?)";
+  (marca, modelo, codigo, descripcion, precio, precio_proveedor, proveedor_id, stock, categoria_id)
+  VALUES (?, ?, ?, ?, ?, ?, NULL, 0, ?)";
 
-        $stmt = $conexion->prepare($sql);
-        $stmt->bind_param(
-          "sssddi",
-          $nombre,
-          $codigo,
-          $descripcion,
-          $precio,
-          $precio_proveedor,
-          $categoria_id
-        );
+$stmt = $conexion->prepare($sql);
+$stmt->bind_param(
+  "ssssddi",
+  $marca,
+  $modelo,
+  $codigo,
+  $descripcion,
+  $precio,
+  $precio_proveedor,
+  $categoria_id
+);
       } else {
         $sql = "INSERT INTO productos
-          (nombre, codigo, descripcion, precio, precio_proveedor, proveedor_id, stock, categoria_id)
-          VALUES (?, ?, ?, ?, ?, ?, 0, ?)";
+          (marca, modelo, codigo, descripcion, precio, precio_proveedor, proveedor_id, stock, categoria_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)";
 
         $stmt = $conexion->prepare($sql);
         $stmt->bind_param(
@@ -778,7 +778,9 @@ function editarProducto($conexion)
   $producto_id = intval($data['producto_id'] ?? 0);
 
   $codigo = trim($data['codigo'] ?? '');
-  $nombre = trim($data['nombre'] ?? '');
+  $marca = trim($data['marca'] ?? '');
+  $modelo = trim($data['modelo'] ?? '');
+  $nombre = trim($marca . ' ' . $modelo);
   $descripcion = trim($data['descripcion'] ?? '');
   $precio = (float)($data['precio'] ?? -1);
   $precio_proveedor = (float)($data['precio_proveedor'] ?? 0);
@@ -806,10 +808,15 @@ function editarProducto($conexion)
     return;
   }
 
-  if ($nombre === '' || strlen($nombre) > 100) {
-    echo json_encode(["success" => false, "error" => "Nombre inválido"]);
-    return;
-  }
+  if ($marca === '' || strlen($marca) > 100) {
+  echo json_encode(["success" => false, "error" => "Marca inválida"]);
+  return;
+}
+
+if ($modelo === '' || strlen($modelo) > 100) {
+  echo json_encode(["success" => false, "error" => "Modelo inválido"]);
+  return;
+}
 
   if ($descripcion === '' || strlen($descripcion) > 1000) {
     echo json_encode(["success" => false, "error" => "Descripción inválida"]);
@@ -915,25 +922,24 @@ function editarProducto($conexion)
 
     $stmtCodigo->close();
 
-    /*
-      Actualizar datos generales del producto.
-    */
     $stmtP = $conexion->prepare("
-      UPDATE productos
-      SET codigo = ?,
-          nombre = ?,
-          descripcion = ?,
-          categoria_id = ?
-      WHERE id = ?
-    ");
-    $stmtP->bind_param(
-      "sssii",
-      $codigo,
-      $nombre,
-      $descripcion,
-      $categoria_id,
-      $producto_id
-    );
+  UPDATE productos
+  SET codigo = ?,
+      marca = ?,
+      modelo = ?,
+      descripcion = ?,
+      categoria_id = ?
+  WHERE id = ?
+");
+$stmtP->bind_param(
+  "ssssii",
+  $codigo,
+  $marca,
+  $modelo,
+  $descripcion,
+  $categoria_id,
+  $producto_id
+);
 
     if (!$stmtP->execute()) {
       throw new Exception("No se pudo actualizar el producto: " . $stmtP->error);
@@ -1054,7 +1060,9 @@ function eliminarProducto($conexion)
               iu.stock,
               iu.precio_proveedor,
               p.codigo,
-              p.nombre
+              p.marca,
+              p.modelo,
+              TRIM(CONCAT_WS(' ', p.marca, p.modelo)) AS nombre
             FROM inventario_usuarios iu
             INNER JOIN productos p ON p.id = iu.producto_id
             WHERE iu.id = ?
@@ -1258,7 +1266,9 @@ function reporteMovimientos(mysqli $conexion)
             im.producto_id,
             im.inventario_usuario_id,
             im.producto_codigo,
-            im.producto_nombre,
+            COALESCE(NULLIF(im.producto_nombre, ''), TRIM(CONCAT_WS(' ', p.marca, p.modelo))) AS producto_nombre,
+            p.marca,
+            p.modelo,
             im.tipo,
             im.cantidad,
             im.costo_unitario,
@@ -1311,10 +1321,7 @@ function reporteMovimientos(mysqli $conexion)
   $tot_salidas = 0.0;
 
   while ($row = $res->fetch_assoc()) {
-    /*
-      Agrupamos por inventario_usuario_id para que no se mezclen productos iguales
-      de diferentes dueños.
-    */
+    
     if (!empty($row['inventario_usuario_id'])) {
       $key = 'inv_' . $row['inventario_usuario_id'];
     } else {
@@ -1328,6 +1335,8 @@ function reporteMovimientos(mysqli $conexion)
         'inventario_usuario_id' => $row['inventario_usuario_id'],
         'codigo' => $row['producto_codigo'],
         'nombre' => $row['producto_nombre'],
+        'marca' => $row['marca'] ?? '',
+        'modelo' => $row['modelo'] ?? '',
         'propietario' => $row['propietario'] ?: '—',
         'stock_actual' => isset($row['stock_actual']) ? (float)$row['stock_actual'] : null,
         'entradas' => 0.0,

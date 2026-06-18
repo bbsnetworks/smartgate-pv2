@@ -108,7 +108,18 @@ function escapeHTML(texto) {
 function formatoMoneda(valor) {
   return `$${Number(valor || 0).toFixed(2)}`;
 }
+function nombreProducto(p) {
+  const marca = String(p.marca ?? "").trim();
+  const modelo = String(p.modelo ?? "").trim();
 
+  if (marca && modelo) return `${marca} ${modelo}`;
+  if (modelo) return modelo;
+  if (marca) return marca;
+
+  if (p.nombre) return String(p.nombre).trim();
+
+  return "Sin marca/modelo";
+}
 function renderListaProductosCompacta(productos = []) {
   if (!productos.length) {
     return `<span class="text-slate-400">Sin productos</span>`;
@@ -121,7 +132,11 @@ function renderListaProductosCompacta(productos = []) {
       <div class="flex items-start justify-between gap-2">
         <div>
           <div class="font-semibold text-slate-100">
-            ${escapeHTML(p.nombre)}
+            ${escapeHTML(nombreProducto(p))}
+          </div>
+
+          <div class="text-xs text-slate-400">
+            Marca: ${escapeHTML(p.marca || "—")} · Modelo: ${escapeHTML(p.modelo || "—")}
           </div>
 
           <div class="text-xs text-slate-400">
@@ -176,7 +191,11 @@ function verDetalleVenta(index) {
   const productosHTML = (venta.productos || []).map((p) => `
     <tr class="border-b border-slate-700">
       <td class="px-3 py-2">
-        <div class="font-semibold text-slate-100">${escapeHTML(p.nombre)}</div>
+        <div class="font-semibold text-slate-100">${escapeHTML(nombreProducto(p))}</div>
+        <div class="text-xs text-slate-400">
+          Marca: ${escapeHTML(p.marca || "—")} · Modelo: ${escapeHTML(p.modelo || "—")}
+        </div>
+
         <div class="text-xs text-slate-400">
           ${p.codigo ? `Código: ${escapeHTML(p.codigo)}` : ""}
         </div>
@@ -295,13 +314,19 @@ function filtrarPagos(texto) {
       venta.venta_id.toLowerCase().includes(filtro) ||
       venta.fecha_pago.toLowerCase().includes(filtro) ||
       venta.usuario.toLowerCase().includes(filtro) ||
-      venta.productos.some(p => p.nombre.toLowerCase().includes(filtro));
+      venta.productos.some(p => nombreProducto(p).toLowerCase().includes(filtro));
 
     if (contiene) {
       const productosHTML = venta.productos
         .map(p => {
-          const nombreCorto = p.nombre.length > 30 ? p.nombre.slice(0, 30) + "..." : p.nombre;
-          return `<div title="${p.nombre}"><strong>${nombreCorto}</strong> x${p.cantidad} - $${p.total}</div>`;
+          const nombre = nombreProducto(p);
+          const nombreCorto = nombre.length > 30 ? nombre.slice(0, 30) + "..." : nombre;
+
+          return `
+            <div title="${escapeHTML(nombre)}">
+              <strong>${escapeHTML(nombreCorto)}</strong> x${p.cantidad} - ${formatoMoneda(p.total)}
+            </div>
+          `;  
         })
         .join("");
 

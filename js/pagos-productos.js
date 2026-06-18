@@ -113,16 +113,37 @@ inputCodigo.addEventListener("keypress", function (e) {
     }
   }
 });
+function calcularTotalProducto(prod) {
+  const precio = Number(prod.precio || 0);
+  const ajuste = Number(prod.ajuste_unitario || 0);
+  const cantidad = parseInt(prod.cantidad || 0, 10);
+
+  const precioFinal = precio + ajuste;
+
+  return precioFinal * cantidad;
+}
+
 function getTotalNumber() {
-  return productosAgregados.reduce(
-    (acc, p) => acc + parseFloat(p.precio) * parseInt(p.cantidad || 0),
-    0,
-  );
+  return productosAgregados.reduce((acc, p) => {
+    return acc + calcularTotalProducto(p);
+  }, 0);
 }
 function formateaMoneda(n) {
   return `$${Number(n).toFixed(2)}`;
 }
+function nombreProducto(p) {
+  const marca = String(p.marca ?? "").trim();
+  const modelo = String(p.modelo ?? "").trim();
 
+  if (marca && modelo) return `${marca} ${modelo}`;
+  if (modelo) return modelo;
+  if (marca) return marca;
+
+  // Compatibilidad por si algún PHP viejo todavía manda nombre
+  if (p.nombre) return String(p.nombre).trim();
+
+  return "Sin marca/modelo";
+}
 function buscarProducto(codigo) {
   ocultarSugerencias();
 
@@ -202,7 +223,9 @@ function agregarProductoAlCarrito(producto) {
       usuario_propietario_id: producto.usuario_propietario_id,
 
       codigo: producto.codigo,
-      nombre: producto.nombre,
+      marca: producto.marca || "",
+      modelo: producto.modelo || "",
+      nombre: nombreProducto(producto),
       descripcion: producto.descripcion || "",
 
       propietario: producto.propietario || "—",
@@ -210,6 +233,7 @@ function agregarProductoAlCarrito(producto) {
       proveedor_nombre: producto.proveedor_nombre || "—",
 
       precio: Number(producto.precio || 0),
+      ajuste_unitario: 0,
       precio_proveedor: Number(producto.precio_proveedor || 0),
       stock: stock,
       cantidad: 1,
@@ -232,12 +256,11 @@ function mostrarSelectorInventario(productos) {
               <button
                 type="button"
                 class="w-full text-left px-4 py-3 hover:bg-slate-700 border-b border-slate-700 last:border-b-0"
-                onclick="seleccionarInventarioVenta(${index})"
-              >
+                onclick="seleccionarInventarioVenta(${index})">
                 <div class="flex items-start justify-between gap-3">
                   <div>
                     <div class="font-semibold text-slate-100">
-                      ${p.codigo} — ${p.nombre}
+                      ${p.codigo} — ${nombreProducto(p)}
                     </div>
 
                     <div class="text-xs text-blue-300 mt-1">
@@ -307,53 +330,85 @@ function ocultarSugerencias() {
 function actualizarTabla() {
   const tbody = document.getElementById("tablaProductos");
   tbody.innerHTML = "";
+
   let total = 0;
 
   productosAgregados.forEach((prod, i) => {
     const fila = document.createElement("tr");
 
-    const totalFila = (prod.precio * prod.cantidad).toFixed(2);
-    total += parseFloat(totalFila);
+    const precioBase = Number(prod.precio || 0);
+    const ajuste = Number(prod.ajuste_unitario || 0);
+    const precioFinal = precioBase + ajuste;
+    const totalFila = calcularTotalProducto(prod);
+
+    total += totalFila;
+
+    let textoAjuste = "Sin ajuste";
+    if (ajuste > 0) textoAjuste = "Comisión";
+    if (ajuste < 0) textoAjuste = "Descuento";
 
     fila.innerHTML = `
-  <td class="border border-slate-700 px-4 py-2">
-    <div class="font-semibold">${prod.nombre}</div>
-    <div class="text-xs text-slate-400">Código: ${prod.codigo || "—"}</div>
-  </td>
+      <td class="border border-slate-700 px-4 py-2">
+        <div class="font-semibold">${nombreProducto(prod)}</div>
+        <div class="text-xs text-slate-400">
+          Marca: ${prod.marca || "—"} · Modelo: ${prod.modelo || "—"}
+        </div>
+        <div class="text-xs text-slate-400">Código: ${prod.codigo || "—"}</div>
+      </td>
 
-  <td class="border border-slate-700 px-4 py-2">
-    <span class="inline-flex items-center px-2 py-1 rounded-lg bg-slate-900/70 border border-slate-600 text-blue-300 text-sm font-semibold">
-      ${prod.propietario || "—"}
-    </span>
-  </td>
+      <td class="border border-slate-700 px-4 py-2">
+        <span class="inline-flex items-center px-2 py-1 rounded-lg bg-slate-900/70 border border-slate-600 text-blue-300 text-sm font-semibold">
+          ${prod.propietario || "—"}
+        </span>
+      </td>
 
-  <td class="border border-slate-700 px-4 py-2">
-    <input 
-      type="number" 
-      min="1" 
-      max="${prod.stock || 999999}"
-      value="${prod.cantidad}" 
-      class="w-20 bg-slate-900 text-slate-100 text-center border border-slate-600 rounded px-2 py-1" 
-      onchange="cambiarCantidad(${i}, this.value)"
-    >
-    <div class="text-xs text-slate-400 mt-1">Stock: ${prod.stock || 0}</div>
-  </td>
+      <td class="border border-slate-700 px-4 py-2">
+        <input 
+          type="number" 
+          min="1" 
+          max="${prod.stock || 999999}"
+          value="${prod.cantidad}" 
+          class="w-20 bg-slate-900 text-slate-100 text-center border border-slate-600 rounded px-2 py-1" 
+          onchange="cambiarCantidad(${i}, this.value)"
+        >
+        <div class="text-xs text-slate-400 mt-1">Stock: ${prod.stock || 0}</div>
+      </td>
 
-  <td class="border border-slate-700 px-4 py-2">$${Number(prod.precio || 0).toFixed(2)}</td>
+      <td class="border border-slate-700 px-4 py-2">
+        $${precioBase.toFixed(2)}
+      </td>
 
-  <td class="border border-slate-700 px-4 py-2">$${totalFila}</td>
+      <td class="border border-slate-700 px-4 py-2">
+        <input
+          type="number"
+          step="0.01"
+          value="${ajuste}"
+          class="w-28 bg-slate-900 text-slate-100 text-center border border-slate-600 rounded px-2 py-1"
+          onchange="cambiarAjusteProducto(${i}, this.value)"
+          placeholder="0.00"
+        >
+        <div class="text-xs text-slate-400 mt-1">
+          ${textoAjuste}
+        </div>
+        <div class="text-xs text-slate-500">
+          Final: $${precioFinal.toFixed(2)}
+        </div>
+      </td>
 
-  <td class="border border-slate-700 px-4 py-2 text-center">
-    <button onclick="eliminarProducto(${i})" class="text-red-500 hover:text-red-400 font-bold">🗑️</button>
-  </td>
-`;
+      <td class="border border-slate-700 px-4 py-2 font-semibold">
+        $${totalFila.toFixed(2)}
+      </td>
+
+      <td class="border border-slate-700 px-4 py-2 text-center">
+        <button onclick="eliminarProducto(${i})" class="text-red-500 hover:text-red-400 font-bold">🗑️</button>
+      </td>
+    `;
 
     tbody.appendChild(fila);
   });
 
   document.getElementById("totalPagar").textContent = total.toFixed(2);
 
-  // ✅ Si es Tarjeta/Transferencia, actualiza el input con el nuevo total
   syncMontoEntregadoConTotal();
 }
 
@@ -377,7 +432,26 @@ function cambiarCantidad(index, valor) {
 
   actualizarTabla();
 }
+function cambiarAjusteProducto(index, valor) {
+  const ajuste = parseFloat(String(valor).replace(",", ".")) || 0;
 
+  productosAgregados[index].ajuste_unitario = ajuste;
+
+  const precioBase = Number(productosAgregados[index].precio || 0);
+  const precioFinal = precioBase + ajuste;
+
+  if (precioFinal < 0) {
+    productosAgregados[index].ajuste_unitario = -precioBase;
+
+    swalInfo.fire(
+      "Ajuste corregido",
+      "El precio final no puede quedar menor a $0.00.",
+      "warning",
+    );
+  }
+
+  actualizarTabla();
+}
 function eliminarProducto(index) {
   productosAgregados.splice(index, 1);
   actualizarTabla();
@@ -463,7 +537,20 @@ async function procesarVenta() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        productos: productosAgregados,
+        productos: productosAgregados.map((p) => {
+          const precioBase = Number(p.precio || 0);
+          const ajuste = Number(p.ajuste_unitario || 0);
+          const cantidad = parseInt(p.cantidad || 0, 10);
+          const precioFinal = precioBase + ajuste;
+
+          return {
+            ...p,
+            precio: precioBase,
+            ajuste_unitario: ajuste,
+            precio_final_unitario: precioFinal,
+            total: precioFinal * cantidad,
+          };
+        }),
         metodo_pago: metodoPago,
       }),
     });
@@ -574,15 +661,23 @@ async function generarTicketVenta(
   y += 6;
 
   let total = 0;
+
   productos.forEach((p) => {
-    const precio = parseFloat(p.precio);
-    const cantidad = parseInt(p.cantidad);
-    const subtotal = precio * cantidad;
+    const precio = Number(p.precio || 0);
+    const ajuste = Number(p.ajuste_unitario || 0);
+    const cantidad = parseInt(p.cantidad || 0, 10);
+
+    const precioFinal = precio + ajuste;
+    const subtotal = precioFinal * cantidad;
+
     total += subtotal;
 
-    doc.text(p.nombre, 5, y);
-    doc.text(`x${cantidad} $${precio.toFixed(2)}`, 5, y + 5);
+    doc.text(nombreProducto(p), 5, y);
+
+    // En ticket solo se muestra el precio final ya aplicado
+    doc.text(`x${cantidad} $${precioFinal.toFixed(2)}`, 5, y + 5);
     doc.text(`$${subtotal.toFixed(2)}`, 53, y + 5, { align: "right" });
+
     y += 10;
   });
 
@@ -658,8 +753,10 @@ inputCodigo.addEventListener("input", () => {
     <div>
       <strong>${prod.codigo}</strong>
       <br>
-      <span class="text-stone-50">${prod.nombre}</span>
-
+      <span class="text-stone-50">${nombreProducto(prod)}</span>
+      <div class="text-xs text-slate-400 mt-1">
+        Marca: ${prod.marca || "—"} · Modelo: ${prod.modelo || "—"}
+      </div>  
       <div class="text-xs text-slate-400 mt-1">
         Stock total: ${prod.stock_total || 0}
         ${prod.categoria ? ` · ${prod.categoria}` : ""}
