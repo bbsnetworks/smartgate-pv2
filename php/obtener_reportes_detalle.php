@@ -1,341 +1,417 @@
 <?php
-require 'conexion.php';
+require_once './verificar_sesion.php';
+require_once './conexion.php';
+
 header('Content-Type: application/json; charset=utf-8');
 
-$usuario = $_GET['usuario'] ?? null;
-$tipo    = $_GET['tipo'] ?? null;
-$fecha   = $_GET['fecha'] ?? null;
-$inicio  = $_GET['inicio'] ?? null;
-$fin     = $_GET['fin'] ?? null;
+$uidSes = intval($_SESSION['usuario']['id'] ?? 0);
+$rolSes = $_SESSION['usuario']['rol'] ?? 'worker';
 
-if (!$usuario || !$tipo) {
+if ($uidSes <= 0) {
   echo json_encode([
     "success" => false,
-    "error" => "Faltan parámetros"
+    "error" => "Sesión no válida"
   ]);
   exit;
 }
 
-/* =========================
-   CALCULAR RANGO DE FECHAS
-========================= */
-switch ($tipo) {
-  case 'dia':
-    if (!$fecha) {
-      echo json_encode([
-        "success" => false,
-        "error" => "Falta la fecha del día"
-      ]);
-      exit;
-    }
+$period = $_GET['period'] ?? 'hoy';
 
-    $inicio = $fecha;
-    $fin    = $fecha;
-    break;
+$userParam = $_GET['user'] ?? 'me'; // me | all | id
+$selectedAll = ($userParam === 'all');
+$selectedUid = ($userParam === 'me') ? $uidSes : intval($userParam);
 
-  case 'mes':
-    if (!$fecha) {
-      echo json_encode([
-        "success" => false,
-        "error" => "Falta el mes"
-      ]);
-      exit;
-    }
-
-    $inicio = date("Y-m-01", strtotime($fecha));
-    $fin    = date("Y-m-t", strtotime($fecha));
-    break;
-
-  case 'anio':
-    if (!$fecha) {
-      echo json_encode([
-        "success" => false,
-        "error" => "Falta el año"
-      ]);
-      exit;
-    }
-
-    $inicio = "$fecha-01-01";
-    $fin    = "$fecha-12-31";
-    break;
-
-  case 'rango':
-    if (!$inicio || !$fin) {
-      echo json_encode([
-        "success" => false,
-        "error" => "Faltan fechas para el rango"
-      ]);
-      exit;
-    }
-    break;
-
-  default:
-    echo json_encode([
-      "success" => false,
-      "error" => "Tipo de búsqueda no válido"
-    ]);
-    exit;
+// Seguridad: worker solo ve sus propias ventas
+if ($rolSes === 'worker') {
+  $selectedAll = false;
+  $selectedUid = $uidSes;
 }
 
-$isTodos = ($usuario === "todos");
-
-/* =========================
-   VENTAS DE PRODUCTOS POS
-========================= */
-$ventasAgrupadas = [];
-
-$total_productos = 0;
-$cantidad_productos = 0;
-
-$productos_por_metodo = [
-  "efectivo" => 0,
-  "tarjeta" => 0,
-  "transferencia" => 0
-];
-
-if (!$isTodos) {
-  $stmt = $conexion->prepare("
-    SELECT 
-      pp.venta_id,
-      pp.fecha_pago,
-      pp.usuario_id,
-      u.nombre AS usuario,
-
-      pp.producto_id,
-      pp.inventario_usuario_id,
-      pp.usuario_propietario_id,
-
-      COALESCE(
-        NULLIF(TRIM(CONCAT_WS(' ', prod.marca, prod.modelo)), ''),
-        'Producto eliminado'
-      ) AS producto,
-      COALESCE(prod.codigo, '') AS codigo,
-
-      pp.cantidad,
-      pp.precio_unitario,
-      pp.costo_unitario,
-      pp.utilidad_total,
-      pp.metodo_pago,
-      pp.total,
-
-      COALESCE(propietario.nombre, 'Sin propietario') AS propietario
-
-    FROM pagos_productos pp
-    LEFT JOIN productos prod 
-      ON pp.producto_id = prod.id
-    LEFT JOIN usuarios u 
-      ON pp.usuario_id = u.id
-    LEFT JOIN usuarios propietario 
-      ON pp.usuario_propietario_id = propietario.id
-
-    WHERE pp.usuario_id = ?
-      AND DATE(pp.fecha_pago) BETWEEN ? AND ?
-
-    ORDER BY pp.fecha_pago ASC, pp.venta_id ASC
-  ");
-
-  $stmt->bind_param("iss", $usuario, $inicio, $fin);
-} else {
-  $stmt = $conexion->prepare("
-    SELECT 
-      pp.venta_id,
-      pp.fecha_pago,
-      pp.usuario_id,
-      u.nombre AS usuario,
-
-      pp.producto_id,
-      pp.inventario_usuario_id,
-      pp.usuario_propietario_id,
-
-      COALESCE(
-        NULLIF(TRIM(CONCAT_WS(' ', prod.marca, prod.modelo)), ''),
-        'Producto eliminado'
-      ) AS producto,
-      COALESCE(prod.codigo, '') AS codigo,
-
-      pp.cantidad,
-      pp.precio_unitario,
-      pp.costo_unitario,
-      pp.utilidad_total,
-      pp.metodo_pago,
-      pp.total,
-
-      COALESCE(propietario.nombre, 'Sin propietario') AS propietario
-
-    FROM pagos_productos pp
-    LEFT JOIN productos prod 
-      ON pp.producto_id = prod.id
-    LEFT JOIN usuarios u 
-      ON pp.usuario_id = u.id
-    LEFT JOIN usuarios propietario 
-      ON pp.usuario_propietario_id = propietario.id
-
-    WHERE DATE(pp.fecha_pago) BETWEEN ? AND ?
-
-    ORDER BY pp.fecha_pago ASC, pp.venta_id ASC
-  ");
-
-  $stmt->bind_param("ss", $inicio, $fin);
+if (!$selectedAll && $selectedUid <= 0) {
+  $selectedUid = $uidSes;
 }
 
-$stmt->execute();
-$res = $stmt->get_result();
+/* =========================
+   HELPERS
+========================= */
+function monedaMX($n) {
+  return '$' . number_format(floatval($n), 2);
+}
 
-while ($row = $res->fetch_assoc()) {
-  $venta_id = $row['venta_id'] ?? 'SIN-FOLIO';
+function rangoPeriodo($period) {
+  $hoy = date('Y-m-d');
 
-  $metodo = strtolower(trim((string)($row["metodo_pago"] ?? "sin especificar")));
-  $cantidad = intval($row["cantidad"] ?? 0);
-  $total = floatval($row["total"] ?? 0);
+  switch ($period) {
+    case 'semana':
+      $ini = date('Y-m-d', strtotime('monday this week'));
+      $fin = date('Y-m-d', strtotime('sunday this week'));
+      break;
 
-  $total_productos += $total;
-  $cantidad_productos += $cantidad;
+    case 'mes':
+      $ini = date('Y-m-01');
+      $fin = date('Y-m-t');
+      break;
 
-  if (!isset($productos_por_metodo[$metodo])) {
-    $productos_por_metodo[$metodo] = 0;
+    case 'hoy':
+    default:
+      $ini = $hoy;
+      $fin = $hoy;
+      break;
   }
 
-  $productos_por_metodo[$metodo] += $total;
-
-  if (!isset($ventasAgrupadas[$venta_id])) {
-    $ventasAgrupadas[$venta_id] = [
-      "venta_id" => $venta_id,
-      "usuario_id" => intval($row['usuario_id'] ?? 0),
-      "usuario" => $row['usuario'] ?? "Usuario eliminado",
-      "fecha" => date("Y-m-d", strtotime($row['fecha_pago'])),
-      "hora" => date("H:i:s", strtotime($row['fecha_pago'])),
-      "fecha_pago" => $row['fecha_pago'],
-      "metodo_pago" => $row['metodo_pago'] ?? "Sin especificar",
-      "total_venta" => 0,
-      "cantidad_productos" => 0,
-      "productos" => []
-    ];
-  }
-
-  $ventasAgrupadas[$venta_id]["total_venta"] += $total;
-  $ventasAgrupadas[$venta_id]["cantidad_productos"] += $cantidad;
-
-  $ventasAgrupadas[$venta_id]["productos"][] = [
-    "producto_id" => intval($row["producto_id"] ?? 0),
-    "inventario_usuario_id" => intval($row["inventario_usuario_id"] ?? 0),
-    "usuario_propietario_id" => intval($row["usuario_propietario_id"] ?? 0),
-
-    "codigo" => $row["codigo"] ?? "",
-    "nombre" => $row["producto"] ?? "Producto eliminado",
-    "propietario" => $row["propietario"] ?? "Sin propietario",
-
-    "cantidad" => $cantidad,
-    "precio_unitario" => floatval($row["precio_unitario"] ?? 0),
-    "costo_unitario" => floatval($row["costo_unitario"] ?? 0),
-    "utilidad_total" => floatval($row["utilidad_total"] ?? 0),
-    "total" => $total
+  return [
+    $ini . ' 00:00:00',
+    $fin . ' 23:59:59',
+    $ini,
+    $fin
   ];
 }
 
-$stmt->close();
-
 /* =========================
-   MOVIMIENTOS DE CAJA
+   GRÁFICA DE VENTAS POS
 ========================= */
-$movimientos_caja = [];
-$caja_ingresos = 0;
-$caja_egresos = 0;
+if (isset($_GET['serie'])) {
+  $serie = $_GET['serie'] ?? 'prod';
+  $resolucion = $_GET['res'] ?? 'mes';
 
-if (!$isTodos) {
-  $stCaja = $conexion->prepare("
-    SELECT 
-      cm.id,
-      cm.tipo,
-      cm.monto,
-      DATE_FORMAT(cm.fecha, '%Y-%m-%d %H:%i:%s') AS fecha,
-      cm.concepto,
-      cm.observaciones,
-      cm.usuario_id,
-      u.nombre AS usuario
-    FROM caja_movimientos cm
-    LEFT JOIN usuarios u ON cm.usuario_id = u.id
-    WHERE cm.usuario_id = ?
-      AND DATE(cm.fecha) BETWEEN ? AND ?
-    ORDER BY cm.fecha ASC
-  ");
+  $labels = [];
+  $data = [];
 
-  $stCaja->bind_param("iss", $usuario, $inicio, $fin);
-} else {
-  $stCaja = $conexion->prepare("
-    SELECT 
-      cm.id,
-      cm.tipo,
-      cm.monto,
-      DATE_FORMAT(cm.fecha, '%Y-%m-%d %H:%i:%s') AS fecha,
-      cm.concepto,
-      cm.observaciones,
-      cm.usuario_id,
-      u.nombre AS usuario
-    FROM caja_movimientos cm
-    LEFT JOIN usuarios u ON cm.usuario_id = u.id
-    WHERE DATE(cm.fecha) BETWEEN ? AND ?
-    ORDER BY cm.fecha ASC
-  ");
+  $obtenerTotalRango = function ($ini, $finExcl) use ($conexion, $selectedAll, $selectedUid) {
+    if ($selectedAll) {
+      $stmt = $conexion->prepare("
+        SELECT COALESCE(SUM(total), 0) AS total
+        FROM pagos_productos
+        WHERE fecha_pago >= ?
+          AND fecha_pago < ?
+      ");
 
-  $stCaja->bind_param("ss", $inicio, $fin);
-}
+      $stmt->bind_param("ss", $ini, $finExcl);
+    } else {
+      $stmt = $conexion->prepare("
+        SELECT COALESCE(SUM(total), 0) AS total
+        FROM pagos_productos
+        WHERE fecha_pago >= ?
+          AND fecha_pago < ?
+          AND usuario_id = ?
+      ");
 
-$stCaja->execute();
-$resCaja = $stCaja->get_result();
+      $stmt->bind_param("ssi", $ini, $finExcl, $selectedUid);
+    }
 
-while ($mov = $resCaja->fetch_assoc()) {
-  $tipoMov = strtoupper(trim((string)($mov['tipo'] ?? '')));
-  $montoMov = floatval($mov['monto'] ?? 0);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
 
-  if ($tipoMov === 'INGRESO') {
-    $caja_ingresos += $montoMov;
+    return floatval($row['total'] ?? 0);
+  };
+
+  if ($resolucion === 'dia') {
+    for ($i = 29; $i >= 0; $i--) {
+      $ini = date('Y-m-d 00:00:00', strtotime("-{$i} days"));
+      $finExcl = date('Y-m-d 00:00:00', strtotime("-{$i} days +1 day"));
+
+      $labels[] = date('d M', strtotime($ini));
+      $data[] = $obtenerTotalRango($ini, $finExcl);
+    }
+  } elseif ($resolucion === 'semana') {
+    for ($i = 11; $i >= 0; $i--) {
+      $ini = date('Y-m-d 00:00:00', strtotime("monday -{$i} week"));
+      $finExcl = date('Y-m-d 00:00:00', strtotime("monday -{$i} week +7 days"));
+      $finShow = date('Y-m-d', strtotime($finExcl . ' -1 day'));
+
+      $labels[] = date('d M', strtotime($ini)) . ' - ' . date('d M', strtotime($finShow));
+      $data[] = $obtenerTotalRango($ini, $finExcl);
+    }
+  } else {
+    for ($i = 11; $i >= 0; $i--) {
+      $ini = date('Y-m-01 00:00:00', strtotime("-{$i} months"));
+      $finExcl = date('Y-m-01 00:00:00', strtotime($ini . " +1 month"));
+
+      $labels[] = date('M Y', strtotime($ini));
+      $data[] = $obtenerTotalRango($ini, $finExcl);
+    }
   }
 
-  if ($tipoMov === 'EGRESO') {
-    $caja_egresos += $montoMov;
-  }
+  echo json_encode([
+    "labels" => $labels,
+    "data" => $data
+  ], JSON_UNESCAPED_UNICODE);
 
-  $movimientos_caja[] = [
-    "id" => intval($mov["id"]),
-    "tipo" => $tipoMov,
-    "monto" => $montoMov,
-    "fecha" => $mov["fecha"],
-    "concepto" => $mov["concepto"] ?? "",
-    "observaciones" => $mov["observaciones"] ?? "",
-    "usuario_id" => intval($mov["usuario_id"] ?? 0),
-    "usuario" => $mov["usuario"] ?? "Usuario eliminado"
-  ];
+  exit;
 }
 
-$stCaja->close();
-
-$caja_neto = $caja_ingresos - $caja_egresos;
+/* =========================
+   RANGO KPI
+========================= */
+[$iniDt, $finDt, $iniFecha, $finFecha] = rangoPeriodo($period);
 
 /* =========================
-   RESPUESTA FINAL
+   RESPUESTA BASE
 ========================= */
-echo json_encode([
+$out = [
   "success" => true,
 
-  "rango" => [
-    "inicio" => $inicio,
-    "fin" => $fin,
-    "tipo" => $tipo,
-    "usuario" => $usuario
-  ],
+  "ventas_monto" => 0,
+  "ventas_monto_fmt" => "$0.00",
+  "ventas_detalle" => "",
 
-  "ventas" => array_values($ventasAgrupadas),
+  "ventas_cantidad" => 0,
+  "ventas_cantidad_detalle" => "",
 
-  "total_productos" => $total_productos,
-  "cantidad_productos" => $cantidad_productos,
-  "productos_por_metodo" => $productos_por_metodo,
+  "productos_vendidos" => 0,
 
-  "movimientos_caja" => $movimientos_caja,
-  "caja_ingresos" => $caja_ingresos,
-  "caja_egresos" => $caja_egresos,
-  "caja_neto" => $caja_neto,
+  "utilidad_total" => 0,
+  "utilidad_total_fmt" => "$0.00",
 
-  "total_general" => $total_productos
-]);
+  "producto_top" => null,
 
+  "stock_bajo" => [],
+  "stock_bajo_total" => 0,
+
+  "ultimas_ventas" => []
+];
+
+/* =========================
+   TOTAL VENTAS DEL PERIODO
+========================= */
+if ($selectedAll) {
+  $stmtVentas = $conexion->prepare("
+    SELECT
+      COALESCE(SUM(total), 0) AS monto,
+      COUNT(DISTINCT venta_id) AS ventas,
+      COALESCE(SUM(cantidad), 0) AS productos,
+      COALESCE(SUM(utilidad_total), 0) AS utilidad
+    FROM pagos_productos
+    WHERE fecha_pago BETWEEN ? AND ?
+  ");
+
+  $stmtVentas->bind_param("ss", $iniDt, $finDt);
+  $rolDetalle = "todos";
+} else {
+  $stmtVentas = $conexion->prepare("
+    SELECT
+      COALESCE(SUM(total), 0) AS monto,
+      COUNT(DISTINCT venta_id) AS ventas,
+      COALESCE(SUM(cantidad), 0) AS productos,
+      COALESCE(SUM(utilidad_total), 0) AS utilidad
+    FROM pagos_productos
+    WHERE fecha_pago BETWEEN ? AND ?
+      AND usuario_id = ?
+  ");
+
+  $stmtVentas->bind_param("ssi", $iniDt, $finDt, $selectedUid);
+  $rolDetalle = "usuario seleccionado";
+}
+
+$stmtVentas->execute();
+$rowVentas = $stmtVentas->get_result()->fetch_assoc();
+$stmtVentas->close();
+
+$ventasMonto = floatval($rowVentas['monto'] ?? 0);
+$ventasCantidad = intval($rowVentas['ventas'] ?? 0);
+$productosVendidos = intval($rowVentas['productos'] ?? 0);
+$utilidadTotal = floatval($rowVentas['utilidad'] ?? 0);
+
+$out["ventas_monto"] = $ventasMonto;
+$out["ventas_monto_fmt"] = monedaMX($ventasMonto);
+$out["ventas_detalle"] = "Periodo: {$period} ({$rolDetalle})";
+
+$out["ventas_cantidad"] = $ventasCantidad;
+$out["ventas_cantidad_detalle"] = "{$ventasCantidad} venta(s) · {$productosVendidos} producto(s)";
+
+$out["productos_vendidos"] = $productosVendidos;
+
+$out["utilidad_total"] = $utilidadTotal;
+$out["utilidad_total_fmt"] = monedaMX($utilidadTotal);
+
+/* =========================
+   PRODUCTO MÁS VENDIDO
+========================= */
+if ($selectedAll) {
+  $stmtTop = $conexion->prepare("
+    SELECT
+      pp.producto_id,
+      COALESCE(
+        NULLIF(TRIM(CONCAT_WS(' ', p.marca, p.modelo)), ''),
+        'Producto eliminado'
+      ) AS nombre,
+      COALESCE(SUM(pp.cantidad), 0) AS cantidad,
+      COALESCE(SUM(pp.total), 0) AS total
+    FROM pagos_productos pp
+    LEFT JOIN productos p
+      ON p.id = pp.producto_id
+    WHERE pp.fecha_pago BETWEEN ? AND ?
+    GROUP BY pp.producto_id, p.marca, p.modelo
+    ORDER BY cantidad DESC, total DESC
+    LIMIT 1
+  ");
+
+  $stmtTop->bind_param("ss", $iniDt, $finDt);
+} else {
+  $stmtTop = $conexion->prepare("
+    SELECT
+      pp.producto_id,
+      COALESCE(
+        NULLIF(TRIM(CONCAT_WS(' ', p.marca, p.modelo)), ''),
+        'Producto eliminado'
+      ) AS nombre,
+      COALESCE(SUM(pp.cantidad), 0) AS cantidad,
+      COALESCE(SUM(pp.total), 0) AS total
+    FROM pagos_productos pp
+    LEFT JOIN productos p
+      ON p.id = pp.producto_id
+    WHERE pp.fecha_pago BETWEEN ? AND ?
+      AND pp.usuario_id = ?
+    GROUP BY pp.producto_id, p.marca, p.modelo
+    ORDER BY cantidad DESC, total DESC
+    LIMIT 1
+  ");
+
+  $stmtTop->bind_param("ssi", $iniDt, $finDt, $selectedUid);
+}
+
+$stmtTop->execute();
+$rowTop = $stmtTop->get_result()->fetch_assoc();
+$stmtTop->close();
+
+if ($rowTop) {
+  $out["producto_top"] = [
+    "producto_id" => intval($rowTop["producto_id"] ?? 0),
+    "nombre" => $rowTop["nombre"] ?? "Producto eliminado",
+    "cantidad" => intval($rowTop["cantidad"] ?? 0),
+    "total" => floatval($rowTop["total"] ?? 0),
+    "total_fmt" => monedaMX($rowTop["total"] ?? 0)
+  ];
+}
+
+/* =========================
+   STOCK BAJO
+   Ahora usa inventario_usuarios, no productos.nombre
+========================= */
+$umbral = isset($_GET['umbral']) ? intval($_GET['umbral']) : 5;
+
+if ($selectedAll) {
+  $stmtStock = $conexion->prepare("
+    SELECT
+      p.id AS producto_id,
+      COALESCE(
+        NULLIF(TRIM(CONCAT_WS(' ', p.marca, p.modelo)), ''),
+        'Producto sin nombre'
+      ) AS nombre,
+      COALESCE(SUM(iu.stock), 0) AS stock
+    FROM productos p
+    LEFT JOIN inventario_usuarios iu
+      ON iu.producto_id = p.id
+      AND iu.activo = 1
+    GROUP BY p.id, p.marca, p.modelo
+    HAVING stock <= ?
+    ORDER BY stock ASC, nombre ASC
+    LIMIT 30
+  ");
+
+  $stmtStock->bind_param("i", $umbral);
+} else {
+  $stmtStock = $conexion->prepare("
+    SELECT
+      p.id AS producto_id,
+      COALESCE(
+        NULLIF(TRIM(CONCAT_WS(' ', p.marca, p.modelo)), ''),
+        'Producto sin nombre'
+      ) AS nombre,
+      COALESCE(iu.stock, 0) AS stock
+    FROM inventario_usuarios iu
+    INNER JOIN productos p
+      ON p.id = iu.producto_id
+    WHERE iu.activo = 1
+      AND iu.usuario_id = ?
+      AND COALESCE(iu.stock, 0) <= ?
+    ORDER BY iu.stock ASC, nombre ASC
+    LIMIT 30
+  ");
+
+  $stmtStock->bind_param("ii", $selectedUid, $umbral);
+}
+
+$stmtStock->execute();
+$resStock = $stmtStock->get_result();
+
+$stockBajo = [];
+
+while ($r = $resStock->fetch_assoc()) {
+  $stockBajo[] = [
+    "producto_id" => intval($r["producto_id"] ?? 0),
+    "nombre" => $r["nombre"] ?? "Producto sin nombre",
+    "stock" => intval($r["stock"] ?? 0),
+    "min" => $umbral
+  ];
+}
+
+$stmtStock->close();
+
+$out["stock_bajo"] = $stockBajo;
+$out["stock_bajo_total"] = count($stockBajo);
+
+/* =========================
+   ÚLTIMAS VENTAS
+========================= */
+if ($selectedAll) {
+  $stmtUltimas = $conexion->prepare("
+    SELECT
+      pp.venta_id,
+      MAX(pp.fecha_pago) AS fecha_pago,
+      MAX(pp.metodo_pago) AS metodo_pago,
+      MAX(u.nombre) AS usuario,
+      COALESCE(SUM(pp.total), 0) AS total,
+      COALESCE(SUM(pp.cantidad), 0) AS cantidad
+    FROM pagos_productos pp
+    LEFT JOIN usuarios u
+      ON u.id = pp.usuario_id
+    GROUP BY pp.venta_id
+    ORDER BY fecha_pago DESC
+    LIMIT 5
+  ");
+} else {
+  $stmtUltimas = $conexion->prepare("
+    SELECT
+      pp.venta_id,
+      MAX(pp.fecha_pago) AS fecha_pago,
+      MAX(pp.metodo_pago) AS metodo_pago,
+      MAX(u.nombre) AS usuario,
+      COALESCE(SUM(pp.total), 0) AS total,
+      COALESCE(SUM(pp.cantidad), 0) AS cantidad
+    FROM pagos_productos pp
+    LEFT JOIN usuarios u
+      ON u.id = pp.usuario_id
+    WHERE pp.usuario_id = ?
+    GROUP BY pp.venta_id
+    ORDER BY fecha_pago DESC
+    LIMIT 5
+  ");
+
+  $stmtUltimas->bind_param("i", $selectedUid);
+}
+
+$stmtUltimas->execute();
+$resUltimas = $stmtUltimas->get_result();
+
+$ultimas = [];
+
+while ($v = $resUltimas->fetch_assoc()) {
+  $ultimas[] = [
+    "venta_id" => $v["venta_id"] ?? "SIN-FOLIO",
+    "fecha_pago" => $v["fecha_pago"] ?? "",
+    "metodo_pago" => $v["metodo_pago"] ?? "Sin especificar",
+    "usuario" => $v["usuario"] ?? "Usuario eliminado",
+    "total" => floatval($v["total"] ?? 0),
+    "total_fmt" => monedaMX($v["total"] ?? 0),
+    "cantidad" => intval($v["cantidad"] ?? 0)
+  ];
+}
+
+$stmtUltimas->close();
+
+$out["ultimas_ventas"] = $ultimas;
+
+echo json_encode($out, JSON_UNESCAPED_UNICODE);
 exit;
