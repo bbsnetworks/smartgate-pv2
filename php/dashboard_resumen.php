@@ -46,7 +46,9 @@ function tablaExiste(mysqli $cx, string $tabla): bool {
   $stmt->close();
   return $c > 0;
 }
-
+function monedaMX($n) {
+  return '$' . number_format(floatval($n), 2);
+}
 
 if (isset($_GET['serie'])) {
   $serie = $_GET['serie'] === 'prod' ? 'prod' : 'insc';
@@ -156,6 +158,14 @@ if ($grafica === '12m') {
 $out = [
   'activos' => 0,
   'inactivos' => 0,
+    'producto_top' => null,
+  'ultimas_ventas' => [],
+  'ventas_recientes' => [],
+  'ventas_cantidad' => 0,
+  'ventas_cantidad_detalle' => '',
+  'productos_vendidos' => 0,
+  'utilidad_total' => 0,
+  'utilidad_total_fmt' => '$0.00',
   'aniversarios_hoy' => 0,
   'aniversarios_lista' => [],
   'ventas_monto' => 0,
@@ -210,67 +220,77 @@ $lista = [];
 if ($q2d) { while ($r = $q2d->fetch_assoc()) $lista[] = ['nombre'=>$r['nombre'], 'anios'=>(int)$r['anios']]; }
 $out['aniversarios_lista'] = $lista;
 
-// --- Stock bajo (lista) ---
-// Soporta 'productos' con columnas posibles:
-//   nombre | descripcion
-//   stock/existencias/cantidad
-//   stock_min/min_stock/minimo
-// Si no hay columna de mínimo, usamos umbral fijo (?umbral=5)
+// --- Stock bajo POS ---
 $umbralParam = isset($_GET['umbral']) ? (int)$_GET['umbral'] : 5;
 
-if (tablaExiste($conexion, 'productos')) {
-  // nombre
-  $colNombre = columnaExiste($conexion, 'productos', 'nombre') ? 'nombre'
-            : (columnaExiste($conexion, 'productos', 'descripcion') ? 'descripcion' : null);
+$stockBajo = [];
 
-  // stock actual
-  $colStock  = columnaExiste($conexion, 'productos', 'stock') ? 'stock'
-            : (columnaExiste($conexion, 'productos', 'existencias') ? 'existencias'
-            : (columnaExiste($conexion, 'productos', 'cantidad') ? 'cantidad' : null));
+if (tablaExiste($conexion, 'inventario_usuarios') && tablaExiste($conexion, 'productos')) {
 
-  // mínimo por producto (opcional)
-  $colMin    = columnaExiste($conexion, 'productos', 'stock_min') ? 'stock_min'
-            : (columnaExiste($conexion, 'productos', 'min_stock') ? 'min_stock'
-            : (columnaExiste($conexion, 'productos', 'minimo') ? 'minimo' : null));
+  if ($selectedAll) {
+    $stmtStock = $conexion->prepare("
+      SELECT
+        p.id AS producto_id,
+        COALESCE(
+          NULLIF(TRIM(CONCAT_WS(' ', p.marca, p.modelo)), ''),
+          'Producto sin nombre'
+        ) AS nombre,
+        COALESCE(SUM(iu.stock), 0) AS stock
+      FROM productos p
+      LEFT JOIN inventario_usuarios iu
+        ON iu.producto_id = p.id
+        AND iu.activo = 1
+      GROUP BY
+        p.id,
+        p.marca,
+        p.modelo
+      HAVING stock <= ?
+      ORDER BY stock ASC, nombre ASC
+      LIMIT 30
+    ");
 
-  if ($colNombre && $colStock) {
-    if ($colMin) {
-      // Con mínimo por producto
-      $sql = "SELECT $colNombre AS nombre, $colStock AS stock, $colMin AS min
-              FROM productos
-              WHERE COALESCE($colStock,0) <= COALESCE($colMin,0)
-              ORDER BY $colStock ASC, $colNombre ASC
-              LIMIT 30";
-      $q = $conexion->query($sql);
-    } else {
-      // Sin columna de mínimo: umbral fijo
-      $sql = "SELECT $colNombre AS nombre, $colStock AS stock
-              FROM productos
-              WHERE COALESCE($colStock,0) <= ?
-              ORDER BY $colStock ASC, $colNombre ASC
-              LIMIT 30";
-      $stmt = $conexion->prepare($sql);
-      $stmt->bind_param('i', $umbralParam);
-      $stmt->execute();
-      $q = $stmt->get_result();
-    }
+    $stmtStock->bind_param("i", $umbralParam);
 
-    $stockBajo = [];
-    if ($q) {
-      while ($r = $q->fetch_assoc()) {
-        $stockBajo[] = [
-          'nombre' => $r['nombre'],
-          'stock'  => (int)($r['stock'] ?? 0),
-          'min'    => isset($r['min']) ? (int)$r['min'] : null
-        ];
-      }
-    }
-    $out['stock_bajo'] = $stockBajo;
-    $out['stock_bajo_total'] = count($stockBajo);
+  } else {
+    $stmtStock = $conexion->prepare("
+      SELECT
+        p.id AS producto_id,
+        COALESCE(
+          NULLIF(TRIM(CONCAT_WS(' ', p.marca, p.modelo)), ''),
+          'Producto sin nombre'
+        ) AS nombre,
+        COALESCE(iu.stock, 0) AS stock
+      FROM inventario_usuarios iu
+      INNER JOIN productos p
+        ON p.id = iu.producto_id
+      WHERE iu.activo = 1
+        AND iu.usuario_id = ?
+        AND COALESCE(iu.stock, 0) <= ?
+      ORDER BY iu.stock ASC, nombre ASC
+      LIMIT 30
+    ");
+
+    $stmtStock->bind_param("ii", $selectedUid, $umbralParam);
   }
+
+  $stmtStock->execute();
+  $q = $stmtStock->get_result();
+
+  while ($r = $q->fetch_assoc()) {
+    $stockBajo[] = [
+      'producto_id' => (int)($r['producto_id'] ?? 0),
+      'nombre' => $r['nombre'] ?? 'Producto sin nombre',
+      'stock'  => (int)($r['stock'] ?? 0),
+      'min'    => $umbralParam
+    ];
+  }
+
+  $stmtStock->close();
 }
 
-// 3) Ventas de productos (SUM)  **NO tocar si no quieres descuento aquí**
+$out['stock_bajo'] = $stockBajo;
+$out['stock_bajo_total'] = count($stockBajo);
+// 3) Ventas de productos POS
 
 if (columnaExiste($conexion, 'pagos_productos', 'fecha_pago'))       $colFechaPP = 'fecha_pago';
 elseif (columnaExiste($conexion, 'pagos_productos', 'fechapago'))    $colFechaPP = 'fechapago';
@@ -281,29 +301,203 @@ $colUserPP = columnaExiste($conexion, 'pagos_productos', 'usuario_id') ? 'usuari
 
 if ($selectedAll) {
   $stmtVentas = $conexion->prepare("
-    SELECT IFNULL(SUM(total),0) AS monto
+    SELECT 
+      IFNULL(SUM(total),0) AS monto,
+      COUNT(DISTINCT venta_id) AS ventas,
+      IFNULL(SUM(cantidad),0) AS productos,
+      IFNULL(SUM(utilidad_total),0) AS utilidad
     FROM pagos_productos
     WHERE $colFechaPP BETWEEN ? AND ?
   ");
+
   $stmtVentas->bind_param('ss', $iniDt, $finDt);
   $rolDetalle = 'todos';
+
 } else {
   $stmtVentas = $conexion->prepare("
-    SELECT IFNULL(SUM(total),0) AS monto
+    SELECT 
+      IFNULL(SUM(total),0) AS monto,
+      COUNT(DISTINCT venta_id) AS ventas,
+      IFNULL(SUM(cantidad),0) AS productos,
+      IFNULL(SUM(utilidad_total),0) AS utilidad
     FROM pagos_productos
-    WHERE $colFechaPP BETWEEN ? AND ? AND $colUserPP = ?
+    WHERE $colFechaPP BETWEEN ? AND ?
+      AND $colUserPP = ?
   ");
+
   $stmtVentas->bind_param('ssi', $iniDt, $finDt, $selectedUid);
   $rolDetalle = 'usuario seleccionado';
 }
+
 $stmtVentas->execute();
-$ventas = (float)($stmtVentas->get_result()->fetch_assoc()['monto'] ?? 0);
+$rowVentas = $stmtVentas->get_result()->fetch_assoc();
 $stmtVentas->close();
 
-$out['ventas_monto']     = $ventas;
-$out['ventas_monto_fmt'] = '$' . number_format($ventas, 2);
-$out['ventas_detalle']   = "Periodo: $period ($rolDetalle)";
+$ventas = (float)($rowVentas['monto'] ?? 0);
+$cantidadVentas = (int)($rowVentas['ventas'] ?? 0);
+$productosVendidos = (int)($rowVentas['productos'] ?? 0);
+$utilidadTotal = (float)($rowVentas['utilidad'] ?? 0);
 
+$out['ventas_monto'] = $ventas;
+$out['ventas_monto_fmt'] = monedaMX($ventas);
+$out['ventas_detalle'] = "Periodo: $period ($rolDetalle)";
+
+$out['ventas_cantidad'] = $cantidadVentas;
+$out['ventas_cantidad_detalle'] = "{$cantidadVentas} venta(s) · {$productosVendidos} producto(s)";
+$out['productos_vendidos'] = $productosVendidos;
+
+$out['utilidad_total'] = $utilidadTotal;
+$out['utilidad_total_fmt'] = monedaMX($utilidadTotal);
+
+// 3.1) Producto más vendido del periodo
+
+if ($selectedAll) {
+  $stmtTop = $conexion->prepare("
+    SELECT
+      pp.producto_id,
+      COALESCE(
+        NULLIF(TRIM(CONCAT_WS(' ', p.marca, p.modelo)), ''),
+        'Producto eliminado'
+      ) AS nombre_producto,
+      SUM(pp.cantidad) AS cantidad_vendida,
+      SUM(pp.total) AS total_vendido
+    FROM pagos_productos pp
+    LEFT JOIN productos p
+      ON p.id = pp.producto_id
+    WHERE pp.fecha_pago BETWEEN ? AND ?
+    GROUP BY
+      pp.producto_id,
+      p.marca,
+      p.modelo
+    ORDER BY cantidad_vendida DESC, total_vendido DESC
+    LIMIT 1
+  ");
+
+  $stmtTop->bind_param("ss", $iniDt, $finDt);
+
+} else {
+  $stmtTop = $conexion->prepare("
+    SELECT
+      pp.producto_id,
+      COALESCE(
+        NULLIF(TRIM(CONCAT_WS(' ', p.marca, p.modelo)), ''),
+        'Producto eliminado'
+      ) AS nombre_producto,
+      SUM(pp.cantidad) AS cantidad_vendida,
+      SUM(pp.total) AS total_vendido
+    FROM pagos_productos pp
+    LEFT JOIN productos p
+      ON p.id = pp.producto_id
+    WHERE pp.fecha_pago BETWEEN ? AND ?
+      AND pp.usuario_id = ?
+    GROUP BY
+      pp.producto_id,
+      p.marca,
+      p.modelo
+    ORDER BY cantidad_vendida DESC, total_vendido DESC
+    LIMIT 1
+  ");
+
+  $stmtTop->bind_param("ssi", $iniDt, $finDt, $selectedUid);
+}
+
+$stmtTop->execute();
+$resTop = $stmtTop->get_result();
+$rowTop = $resTop->fetch_assoc();
+$stmtTop->close();
+
+if ($rowTop) {
+  $nombreTop = $rowTop["nombre_producto"] ?? "Producto eliminado";
+  $cantidadTop = intval($rowTop["cantidad_vendida"] ?? 0);
+  $totalTop = floatval($rowTop["total_vendido"] ?? 0);
+
+  $out["producto_top"] = [
+    "producto_id" => intval($rowTop["producto_id"] ?? 0),
+    "nombre" => $nombreTop,
+    "producto" => $nombreTop,
+    "producto_nombre" => $nombreTop,
+    "cantidad" => $cantidadTop,
+    "unidades" => $cantidadTop,
+    "total_unidades" => $cantidadTop,
+    "total" => $totalTop,
+    "monto" => $totalTop,
+    "total_vendido" => $totalTop,
+    "total_fmt" => monedaMX($totalTop)
+  ];
+} else {
+  $out["producto_top"] = null;
+}
+
+// 3.2) Últimas ventas del periodo
+
+if ($selectedAll) {
+  $stmtUltimas = $conexion->prepare("
+    SELECT
+      pp.venta_id,
+      MAX(pp.$colFechaPP) AS fecha_pago,
+      MAX(pp.metodo_pago) AS metodo_pago,
+      MAX(u.nombre) AS usuario,
+      COALESCE(SUM(pp.total), 0) AS total,
+      COALESCE(SUM(pp.cantidad), 0) AS cantidad
+    FROM pagos_productos pp
+    LEFT JOIN usuarios u
+      ON u.id = pp.usuario_id
+    WHERE pp.$colFechaPP BETWEEN ? AND ?
+    GROUP BY pp.venta_id
+    ORDER BY fecha_pago DESC
+    LIMIT 5
+  ");
+
+  $stmtUltimas->bind_param("ss", $iniDt, $finDt);
+
+} else {
+  $stmtUltimas = $conexion->prepare("
+    SELECT
+      pp.venta_id,
+      MAX(pp.$colFechaPP) AS fecha_pago,
+      MAX(pp.metodo_pago) AS metodo_pago,
+      MAX(u.nombre) AS usuario,
+      COALESCE(SUM(pp.total), 0) AS total,
+      COALESCE(SUM(pp.cantidad), 0) AS cantidad
+    FROM pagos_productos pp
+    LEFT JOIN usuarios u
+      ON u.id = pp.usuario_id
+    WHERE pp.$colFechaPP BETWEEN ? AND ?
+      AND pp.$colUserPP = ?
+    GROUP BY pp.venta_id
+    ORDER BY fecha_pago DESC
+    LIMIT 5
+  ");
+
+  $stmtUltimas->bind_param("ssi", $iniDt, $finDt, $selectedUid);
+}
+
+$stmtUltimas->execute();
+$resUltimas = $stmtUltimas->get_result();
+
+$ultimas = [];
+
+while ($v = $resUltimas->fetch_assoc()) {
+  $ultimas[] = [
+    "venta_id" => $v["venta_id"] ?? "SIN-FOLIO",
+    "folio" => $v["venta_id"] ?? "SIN-FOLIO",
+    "fecha_pago" => $v["fecha_pago"] ?? "",
+    "fecha" => $v["fecha_pago"] ?? "",
+    "metodo_pago" => $v["metodo_pago"] ?? "Sin especificar",
+    "metodo" => $v["metodo_pago"] ?? "Sin especificar",
+    "usuario" => $v["usuario"] ?? "Usuario eliminado",
+    "total" => floatval($v["total"] ?? 0),
+    "monto" => floatval($v["total"] ?? 0),
+    "total_fmt" => monedaMX($v["total"] ?? 0),
+    "monto_fmt" => monedaMX($v["total"] ?? 0),
+    "cantidad" => intval($v["cantidad"] ?? 0)
+  ];
+}
+
+$stmtUltimas->close();
+
+$out["ultimas_ventas"] = $ultimas;
+$out["ventas_recientes"] = $ultimas;
 
 // 4) Inscripciones (COUNT)  **(igual)**
 if (columnaExiste($conexion, 'pagos', 'fecha_pago'))       $colFechaP = 'fecha_pago';
