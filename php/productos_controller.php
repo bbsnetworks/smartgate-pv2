@@ -523,22 +523,23 @@ $stmt->bind_param(
   $categoria_id
 );
       } else {
-        $sql = "INSERT INTO productos
-          (marca, modelo, codigo, descripcion, precio, precio_proveedor, proveedor_id, stock, categoria_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)";
+  $sql = "INSERT INTO productos
+    (marca, modelo, codigo, descripcion, precio, precio_proveedor, proveedor_id, stock, categoria_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)";
 
-        $stmt = $conexion->prepare($sql);
-        $stmt->bind_param(
-          "sssddii",
-          $nombre,
-          $codigo,
-          $descripcion,
-          $precio,
-          $precio_proveedor,
-          $proveedor_id,
-          $categoria_id
-        );
-      }
+  $stmt = $conexion->prepare($sql);
+  $stmt->bind_param(
+    "ssssddii",
+    $marca,
+    $modelo,
+    $codigo,
+    $descripcion,
+    $precio,
+    $precio_proveedor,
+    $proveedor_id,
+    $categoria_id
+  );
+}
 
       if (!$stmt->execute()) {
         throw new Exception("No se pudo crear el producto: " . $stmt->error);

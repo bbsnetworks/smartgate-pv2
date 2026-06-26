@@ -31,139 +31,149 @@
       background-color: #FFB900;
       border-radius: 9999px;
     }
+
     #modal-pos-rapido {
-  animation: modalFadeIn .18s ease-out;
-}
+      animation: modalFadeIn .18s ease-out;
+    }
 
-#modal-pos-rapido > div > div {
-  animation: modalScaleIn .18s ease-out;
-}
+    #modal-pos-rapido>div>div {
+      animation: modalScaleIn .18s ease-out;
+    }
 
-@keyframes modalFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
+    @keyframes modalFadeIn {
+      from {
+        opacity: 0;
+      }
 
-@keyframes modalScaleIn {
-  from {
-    opacity: 0;
-    transform: scale(.97) translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
+      to {
+        opacity: 1;
+      }
+    }
 
-.accion-flotante-pos {
-  border: none;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-}
-/* ===============================
+    @keyframes modalScaleIn {
+      from {
+        opacity: 0;
+        transform: scale(.97) translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .accion-flotante-pos {
+      border: none;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    /* ===============================
    Botones flotantes POS
 ================================ */
-.acciones-flotantes-pos {
-  position: fixed;
-  right: 24px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 999999;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+    .acciones-flotantes-pos {
+      position: fixed;
+      right: 24px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 999999;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
 
-.accion-flotante-pos {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  border: none;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-  text-decoration: none;
-}
+    .accion-flotante-pos {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      border: none;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+      text-decoration: none;
+    }
 
-.accion-tooltip {
-  opacity: 0;
-  transform: translateX(8px);
-  transition: all 0.2s ease;
-  background: rgba(15, 23, 42, 0.92);
-  color: #e2e8f0;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 7px 12px;
-  border-radius: 999px;
-  font-size: 13px;
-  white-space: nowrap;
-  pointer-events: none;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, .25);
-}
+    .accion-tooltip {
+      opacity: 0;
+      transform: translateX(8px);
+      transition: all 0.2s ease;
+      background: rgba(15, 23, 42, 0.92);
+      color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      white-space: nowrap;
+      pointer-events: none;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, .25);
+    }
 
-.accion-flotante-pos:hover .accion-tooltip {
-  opacity: 1;
-  transform: translateX(0);
-}
+    .accion-flotante-pos:hover .accion-tooltip {
+      opacity: 1;
+      transform: translateX(0);
+    }
 
-.accion-circulo {
-  width: 46px;
-  height: 46px;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(8px);
-  transition: all 0.2s ease;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, .25);
-  font-size: 18px;
-}
+    .accion-circulo {
+      width: 46px;
+      height: 46px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s ease;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, .25);
+      font-size: 18px;
+    }
 
-.accion-flotante-pos:hover .accion-circulo {
-  transform: scale(1.06);
-}
+    .accion-flotante-pos:hover .accion-circulo {
+      transform: scale(1.06);
+    }
 
-.accion-venta .accion-circulo {
-  color: #a5b4fc;
-  background: rgba(99, 102, 241, 0.18);
-  border: 1px solid rgba(165, 180, 252, 0.35);
-}
+    .accion-venta .accion-circulo {
+      color: #a5b4fc;
+      background: rgba(99, 102, 241, 0.18);
+      border: 1px solid rgba(165, 180, 252, 0.35);
+    }
 
-.accion-lista .accion-circulo {
-  color: #7dd3fc;
-  background: rgba(14, 165, 233, 0.18);
-  border: 1px solid rgba(125, 211, 252, 0.35);
-}
+    .accion-lista .accion-circulo {
+      color: #7dd3fc;
+      background: rgba(14, 165, 233, 0.18);
+      border: 1px solid rgba(125, 211, 252, 0.35);
+    }
 
-.accion-productos .accion-circulo {
-  color: #6ee7b7;
-  background: rgba(16, 185, 129, 0.18);
-  border: 1px solid rgba(110, 231, 183, 0.35);
-}
+    .accion-productos .accion-circulo {
+      color: #6ee7b7;
+      background: rgba(16, 185, 129, 0.18);
+      border: 1px solid rgba(110, 231, 183, 0.35);
+    }
 
-@media (max-width: 1024px) {
-  .acciones-flotantes-pos {
-    right: 16px;
-    bottom: 18px;
-    top: auto;
-    transform: none;
-    flex-direction: row;
-  }
+    .accion-financiadas .accion-circulo {
+      color: #fcd34d;
+      background: rgba(245, 158, 11, 0.18);
+      border: 1px solid rgba(252, 211, 77, 0.35);
+    }
 
-  .accion-tooltip {
-    display: none;
-  }
+    @media (max-width: 1024px) {
+      .acciones-flotantes-pos {
+        right: 16px;
+        bottom: 18px;
+        top: auto;
+        transform: none;
+        flex-direction: row;
+      }
 
-  .accion-circulo {
-    width: 44px;
-    height: 44px;
-  }
-}
+      .accion-tooltip {
+        display: none;
+      }
+
+      .accion-circulo {
+        width: 44px;
+        height: 44px;
+      }
+    }
   </style>
 </head>
 
@@ -204,6 +214,11 @@
           <a href="vistas/lista-pagos.php"
             class="card-bloqueable block px-3 py-2 rounded-lg border border-slate-700/70 bg-slate-800/70 hover:bg-slate-700/60 flex items-center gap-3">
             <i class="bi bi-receipt icon-20 text-indigo-400"></i><span>Lista de Pagos</span>
+          </a>
+          <a href="vistas/ventas-financiadas.php"
+            class="card-bloqueable block px-3 py-2 rounded-lg border border-slate-700/70 bg-slate-800/70 hover:bg-slate-700/60 flex items-center gap-3">
+            <i class="bi bi-credit-card-2-front icon-20 text-indigo-400"></i>
+            <span>Ventas Financiadas</span>
           </a>
           <a href="vistas/proveedores.php"
             class="card-bloqueable block px-3 py-2 rounded-lg border border-slate-700/70 bg-slate-800/70 hover:bg-slate-700/60 flex items-center gap-3">
@@ -370,7 +385,14 @@
               <i class="bi bi-box-seam"></i>
             </span>
           </button>
-
+          <!-- Ventas financiadas -->
+          <button type="button" class="accion-flotante-pos accion-financiadas" data-pos-modal-title="Ventas financiadas"
+            data-pos-modal-url="vistas/ventas-financiadas.php">
+            <span class="accion-tooltip">Financiadas</span>
+            <span class="accion-circulo">
+              <i class="bi bi-credit-card-2-front"></i>
+            </span>
+          </button>
         </div>
         <!-- KPIs principales -->
         <section id="kpis" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -442,7 +464,7 @@
         </section>
 
         <!-- Segunda fila -->
-        <section class="mt-8 grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <section class="mt-8 grid grid-cols-1 xl:grid-cols-3 gap-6">
 
           <!-- Movimientos de caja -->
           <?php if ($rol !== 'root'): ?>
@@ -470,8 +492,7 @@
           <?php endif; ?>
 
           <!-- Últimas ventas -->
-          <article
-            class="rounded-2xl border border-slate-700 bg-slate-800/70 p-5 shadow <?php echo ($rol === 'root') ? 'xl:col-span-2' : ''; ?>">
+          <article class="rounded-2xl border border-slate-700 bg-slate-800/70 p-5 shadow">
             <div class="flex items-center justify-between gap-3 mb-4">
               <div>
                 <h3 class="font-semibold text-slate-300">Últimas ventas</h3>
@@ -490,7 +511,63 @@
               </div>
             </div>
           </article>
+          <!-- Próximos pagos financiados -->
+          <article id="card-pagos-financiados"
+            class="rounded-2xl border border-slate-700 bg-slate-800/70 p-5 shadow h-full flex flex-col">
 
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <h3 class="font-semibold text-slate-300 flex items-center gap-2">
+                  Próximos pagos
+                  <span id="pagos-financiados-count"
+                    class="inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/30">
+                    0
+                  </span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-1">
+                  Ventas financiadas dentro de ±5 días
+                </p>
+              </div>
+
+              <i class="bi bi-calendar2-week icon-20 text-amber-400"></i>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-4">
+              <div class="rounded-xl bg-slate-900/60 border border-slate-700 p-3">
+                <p class="text-xs text-slate-400">Disponible</p>
+                <p id="pagos-financiados-disponible" class="text-lg font-extrabold text-white mt-1">
+                  $0.00
+                </p>
+              </div>
+
+              <div class="rounded-xl bg-slate-900/60 border border-slate-700 p-3">
+                <p class="text-xs text-slate-400">Vencidos</p>
+                <p id="pagos-financiados-vencidos" class="text-lg font-extrabold text-red-300 mt-1">
+                  0
+                </p>
+              </div>
+            </div>
+
+            <div class="flex-1 min-h-0 overflow-y-auto pr-1 scrollbar-custom">
+              <ul id="lista-pagos-financiados" class="space-y-2">
+                <li class="rounded-xl border border-slate-700 bg-slate-900/50 p-3 text-sm text-slate-400 text-center">
+                  Cargando pagos próximos...
+                </li>
+              </ul>
+            </div>
+
+            <div class="mt-4 flex items-center justify-between gap-3">
+              <small id="pagos-financiados-footer" class="text-xs text-slate-400">
+                —
+              </small>
+
+              <button type="button" data-pos-modal-title="Ventas financiadas"
+                data-pos-modal-url="vistas/ventas-financiadas.php"
+                class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-xs transition whitespace-nowrap">
+                Ver todos
+              </button>
+            </div>
+          </article>
         </section>
 
         <!-- Gráfica de ventas -->
@@ -520,73 +597,154 @@
       </div>
     </main>
   </div>
+  <!-- Modal: Abono rápido financiado -->
+  <div id="modal-abono-financiado-dashboard"
+    class="hidden fixed inset-0 z-[100000] bg-black/70 items-center justify-center px-4 py-8">
 
-  <!-- Modal rápido POS -->
-<div id="modal-pos-rapido"
-  class="fixed inset-0 z-[99999] hidden bg-black/70 backdrop-blur-sm">
+    <div class="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-800 shadow-2xl overflow-hidden">
 
-  <div class="h-full w-full flex items-center justify-center p-3 md:p-6">
-
-    <div class="w-full max-w-7xl h-[92vh] bg-slate-950 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-
-      <!-- Header modal -->
-      <div class="flex items-center justify-between gap-3 px-4 md:px-6 py-4 border-b border-slate-700 bg-slate-900">
-
-        <div class="min-w-0">
-          <h2 id="modal-pos-title" class="text-lg md:text-xl font-bold text-white truncate">
-            Ventana rápida
-          </h2>
-          <p class="text-xs text-slate-400">
-            Puedes trabajar aquí sin salir del dashboard
+      <div class="px-5 py-4 border-b border-slate-700 flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-bold text-white">Registrar abono</h2>
+          <p id="dash-abono-subtitulo" class="text-sm text-slate-400">
+            Pago de venta financiada
           </p>
         </div>
 
-        <div class="flex items-center gap-2">
-
-          <button type="button" id="btn-modal-pos-recargar"
-            class="h-10 w-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 flex items-center justify-center transition"
-            title="Recargar">
-            <i class="bi bi-arrow-clockwise"></i>
-          </button>
-
-          <button type="button" id="btn-modal-pos-abrir"
-            class="h-10 w-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 flex items-center justify-center transition"
-            title="Abrir en ventana completa">
-            <i class="bi bi-box-arrow-up-right"></i>
-          </button>
-
-          <button type="button" id="btn-modal-pos-cerrar"
-            class="h-10 w-10 rounded-xl bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center transition"
-            title="Cerrar">
-            <i class="bi bi-x-lg"></i>
-          </button>
-
-        </div>
+        <button id="btn-cerrar-abono-financiado-dashboard"
+          class="w-10 h-10 rounded-xl bg-slate-700 hover:bg-slate-600 text-white">
+          <i class="bi bi-x-lg"></i>
+        </button>
       </div>
 
-      <!-- Contenido -->
-      <div class="relative flex-1 bg-slate-950">
+      <div class="p-5 space-y-4">
 
-        <div id="modal-pos-loading"
-          class="absolute inset-0 z-10 flex items-center justify-center bg-slate-950">
-          <div class="text-center">
-            <div class="h-10 w-10 mx-auto rounded-full border-4 border-slate-700 border-t-indigo-400 animate-spin"></div>
-            <p class="mt-3 text-sm text-slate-400">Cargando ventana...</p>
+        <input type="hidden" id="dash-abono-venta-id">
+        <input type="hidden" id="dash-abono-cuota-id">
+        <input type="hidden" id="dash-abono-saldo-max">
+
+        <div class="rounded-xl bg-slate-900/60 border border-slate-700 p-4">
+          <p class="text-xs text-slate-400">Saldo disponible para pagar</p>
+          <p id="dash-abono-saldo-texto" class="text-2xl font-extrabold text-amber-300 mt-1">
+            $0.00
+          </p>
+        </div>
+
+        <div>
+          <label for="dash-abono-monto" class="block text-sm font-medium text-slate-300 mb-1">
+            Monto
+          </label>
+          <input type="number" id="dash-abono-monto" step="0.01" min="0"
+            class="w-full bg-slate-700 text-white border border-slate-600 rounded-xl px-4 py-3 focus:ring-blue-400 focus:border-blue-400">
+        </div>
+
+        <div>
+          <label for="dash-abono-metodo" class="block text-sm font-medium text-slate-300 mb-1">
+            Método de pago
+          </label>
+          <select id="dash-abono-metodo"
+            class="w-full bg-slate-700 text-white border border-slate-600 rounded-xl px-4 py-3 focus:ring-blue-400 focus:border-blue-400">
+            <option value="efectivo">Efectivo</option>
+            <option value="tarjeta">Tarjeta</option>
+            <option value="transferencia">Transferencia</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="dash-abono-referencia" class="block text-sm font-medium text-slate-300 mb-1">
+            Referencia
+          </label>
+          <input type="text" id="dash-abono-referencia" placeholder="Opcional"
+            class="w-full bg-slate-700 text-white border border-slate-600 rounded-xl px-4 py-3 focus:ring-blue-400 focus:border-blue-400">
+        </div>
+
+        <div>
+          <label for="dash-abono-observaciones" class="block text-sm font-medium text-slate-300 mb-1">
+            Observaciones
+          </label>
+          <textarea id="dash-abono-observaciones" rows="2"
+            class="w-full bg-slate-700 text-white border border-slate-600 rounded-xl px-4 py-3 focus:ring-blue-400 focus:border-blue-400"></textarea>
+        </div>
+
+        <div class="flex gap-3 justify-end pt-2">
+          <button id="btn-cancelar-abono-financiado-dashboard"
+            class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white">
+            Cancelar
+          </button>
+
+          <button id="btn-guardar-abono-financiado-dashboard"
+            class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
+            Guardar abono
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <!-- Modal rápido POS -->
+  <div id="modal-pos-rapido" class="fixed inset-0 z-[99999] hidden bg-black/70 backdrop-blur-sm">
+
+    <div class="h-full w-full flex items-center justify-center p-3 md:p-6">
+
+      <div
+        class="w-full max-w-7xl h-[92vh] bg-slate-950 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+
+        <!-- Header modal -->
+        <div class="flex items-center justify-between gap-3 px-4 md:px-6 py-4 border-b border-slate-700 bg-slate-900">
+
+          <div class="min-w-0">
+            <h2 id="modal-pos-title" class="text-lg md:text-xl font-bold text-white truncate">
+              Ventana rápida
+            </h2>
+            <p class="text-xs text-slate-400">
+              Puedes trabajar aquí sin salir del dashboard
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2">
+
+            <button type="button" id="btn-modal-pos-recargar"
+              class="h-10 w-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 flex items-center justify-center transition"
+              title="Recargar">
+              <i class="bi bi-arrow-clockwise"></i>
+            </button>
+
+            <button type="button" id="btn-modal-pos-abrir"
+              class="h-10 w-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 flex items-center justify-center transition"
+              title="Abrir en ventana completa">
+              <i class="bi bi-box-arrow-up-right"></i>
+            </button>
+
+            <button type="button" id="btn-modal-pos-cerrar"
+              class="h-10 w-10 rounded-xl bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center transition"
+              title="Cerrar">
+              <i class="bi bi-x-lg"></i>
+            </button>
+
           </div>
         </div>
 
-        <iframe id="modal-pos-frame"
-          src=""
-          class="w-full h-full border-0 bg-slate-950"
-          loading="lazy">
-        </iframe>
+        <!-- Contenido -->
+        <div class="relative flex-1 bg-slate-950">
+
+          <div id="modal-pos-loading" class="absolute inset-0 z-10 flex items-center justify-center bg-slate-950">
+            <div class="text-center">
+              <div class="h-10 w-10 mx-auto rounded-full border-4 border-slate-700 border-t-indigo-400 animate-spin">
+              </div>
+              <p class="mt-3 text-sm text-slate-400">Cargando ventana...</p>
+            </div>
+          </div>
+
+          <iframe id="modal-pos-frame" src="" class="w-full h-full border-0 bg-slate-950" loading="lazy">
+          </iframe>
+
+        </div>
 
       </div>
 
     </div>
-
   </div>
-</div>
 
   <!-- SCRIPTS -->
   <script src="js/sweetalert2@11.js"></script>
